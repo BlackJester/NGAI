@@ -1,0 +1,255 @@
+void NG_Init10PoolBaneling(int player) {
+    NG_InitBuildOrder(player);
+    NG_debugInfo("Init 10 Pool Baneling! such wow");
+
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Overlord, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, NG_Expand, true);
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, c_ZB_SpawningPool, true);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+    NG_AddToBO_Simple(player, 70, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 7, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, true);
+    NG_AddToBO_Simple(player, 7, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 8, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_Lair, true);
+    NG_AddToBO(player, 1, 0, 200, 0, true, c_ZB_RoachWarren, 0, "");
+    NG_AddToBO_Simple(player, 30, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 3, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 2, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 1, c_ZR_ZerglingSpeed, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, true);
+    NG_AddToBO_Simple(player, 0, NG_BO_SetAggro, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_InitLingRushIntoAir(int player) {
+    NG_TypeMessage(player, "Let's see how long you'll last", 3.0);
+    NG_TypeMessage(player, "JUST DO IT!", 3.0);
+    NG_TypeMessage(player, "They see me rolliiin...", 4.0);
+    NG_TypeMessage(player, "You'll get smashed", 3.0);
+
+    NG_AddResponse(player, "Good luck to you too", "glhf", "", 2.0);
+    NG_AddResponse(player, "You'll need it, m8.", "glhf", "", 3.5);
+    NG_AddResponse(player, "I am the Next Gen IdrA!", "are you?", "", 3.0);
+    NG_AddResponse(player, "U MAD BRO?", "fuck", "", 3.0);
+    NG_AddResponse(player, "not really...", "", "gg", 1.0);
+    NG_AddResponse(player, "You sound gay", "Hello", "", 1.0);
+
+    NG_AddShittalk(player, "Get rekt!", NG_c_st_ConquestIndex);
+    NG_AddShittalk(player, "Well...that must hurt I guess", NG_c_st_ConquestIndex);
+    NG_AddShittalk(player, "Dude, just fuck off!", NG_c_st_BaseUnderAttackIndex);
+    NG_AddShittalk(player, "Oh shit fell asleep!!", NG_c_st_BaseUnderAttackIndex);
+
+    NG_AddShittalk(player, "Get rekt!", NG_c_st_ConquestIndex);
+    NG_AddShittalk(player, "Dude, just fuck off!", NG_c_st_BaseUnderAttackIndex);
+    NG_AddShittalk(player, "Looks like you're not as Bronze as I thought...", NG_c_st_LostAWIndex);
+    NG_AddShittalk(player, "Oh hell no, I'ma get the fuck outa here!", NG_c_st_RetreatIndex);
+
+    NG_InitBuildOrder(player);
+
+    NG_AddToBO_Simple(player, 100, NG_SetAllinChance, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Overlord, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, c_ZB_SpawningPool, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, true);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, c_ZB_BanelingNest, false);
+    NG_AddToBO_Simple(player, 16, c_ZU_Zergling, true);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+    NG_AddToBO_Simple(player, 1, c_ZR_ZerglingSpeed, false);
+    NG_AddToBO(player, 6, 0, 0, 0, false, c_ZU_Baneling, 15, c_ZU_Zergling);
+    NG_AddToBO_Simple(player, 36, c_ZU_Zergling, true);
+    NG_AddToBO_Simple(player, 9001, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO_Simple(player, 90, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 2, NG_Gas, false);
+    NG_AddToBO_Simple(player, 20, c_ZU_Zergling, true);
+    NG_AddToBO_Simple(player, 1, c_ZB_Lair, true);
+    NG_AddToBO_Simple(player, 20, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, -5, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 70, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoExpand, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Baneling, false);
+    NG_AddToBO_Simple(player, 30, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_Spire, true);
+    NG_AddToBO_Simple(player, 10, c_ZU_Mutalisk, false);
+    NG_AddToBO_Simple(player, 30, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_Spire, true); //more research capabilities
+    NG_AddToBO_Simple(player, 1, c_ZB_GreaterSpire, true);
+    NG_AddToBO_Simple(player, 0, NG_BO_SetAggro, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_InitRoachRavager(int player) {
+    NG_TypeMessage(player, "Hi :3", 4.0);
+
+    NG_AddShittalk(player, "Roaches are so cute, here take a look at them <3", NG_c_st_ConquestIndex);
+    NG_AddShittalk(player, "Stop poking me :/", NG_c_st_BaseUnderAttackIndex);
+    NG_AddShittalk(player, "Nooo... my Roaches are gone :'(", NG_c_st_LostAWIndex);
+    NG_AddShittalk(player, "I don't think attacking was such a bright idea...", NG_c_st_RetreatIndex);
+    NG_SetPlayerHappy(player,true); //Overlords will dance :)
+
+    NG_AddResponse(player, "GG, well played", "", "gg", 1.5);
+    NG_AddResponse(player, "glhf to you too <3", "glhf", "", 2.0);
+    NG_AddResponse(player, "<3", ":3", "", 1.0);
+    NG_AddResponse(player, "<3", ":D", "", 1.0);
+    NG_AddResponse(player, "How are you?", "hi", "", 1.0);
+    NG_AddResponse(player, "I really like roaches :) and Ravagers. I think they're really really adorable.", "favourite", "", 4.0);
+    NG_AddResponse(player, "thats rude :(", "fuck", "", 2.0);
+    NG_AddResponse(player, "Stop cheating :'( :'(", "-gold", "", 2.0);
+    NG_AddResponse(player, "Oo_oO <( Blagh )", "roach", "", 3.0);
+    NG_AddResponse(player, "(That was a roach ;) )", "roach", "", 3.0);
+    NG_AddResponse(player, "///\\(\"w\")/\\\\\\ <( Barf )", "ravager", "", 3.0);
+    NG_AddResponse(player, "(That was a ravager ;) )", "ravager", "", 3.0);
+
+    NG_InitBuildOrder(player);
+
+    NG_AddToBO_Simple(player, 100, NG_SetAllinChance, false);
+    NG_AddToBO_Simple(player, -65, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Overlord, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 2, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_SpawningPool, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 2, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, true);
+    NG_AddToBO_Simple(player, 6, c_ZU_Drone, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_ZU_Queen, 2, c_ZB_Hatchery);
+    NG_AddToBO_Simple(player, 1, c_ZB_RoachWarren, true);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+    NG_AddToBO_Simple(player, 1, c_ZR_ZerglingSpeed, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Roach, true);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 3, c_ZU_Ravager, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO_Simple(player, 80, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 2, NG_Gas, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_Lair, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoExpand, false);
+    NG_AddToBO_Simple(player, 8, c_ZU_Roach, true);
+    NG_AddToBO_Simple(player, 3, c_ZU_Ravager, true);
+    NG_AddToBO_Simple(player, -45, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 15, c_ZU_Roach, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Ravager, true);
+    NG_AddToBO_Simple(player, 30, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, c_ZR_RoachSpeed, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_Hive, true);
+    NG_AddToBO_Simple(player, -25, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 100, NG_SetAllinChance, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_InitQueentest(int player) {
+    NG_debugInfo("Just a test BO, pls remove me from Loader");
+    NG_InitBuildOrder(player);
+
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Overlord, false);
+    NG_AddToBO_Simple(player, 3, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 3, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, c_ZB_SpawningPool, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO_Simple(player, 2, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, NG_Expand, true);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, true);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_InitMacroZerg(int player) {
+    NG_TypeMessage(player, "What's up?", 3.0);
+    NG_TypeMessage(player, "Good luck, have fun.", 1.0);
+
+    NG_AddShittalk(player, "Oh, there you are.", NG_c_st_ConquestIndex);
+
+    NG_AddResponse(player, "Good game, indeed.", "", "gg", 1.0);
+    NG_AddResponse(player, "Thanks :)", "nice", "", 1.0);
+
+    NG_InitBuildOrder(player);
+
+    NG_AddToBO_Simple(player, 100, NG_SetAllinChance, false);
+    NG_AddToBO_Simple(player, -45, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Overlord, false);
+    NG_AddToBO_Simple(player, 3, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 3, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_SpawningPool, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO_Simple(player, 2, c_ZU_Drone, true);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 5, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, true);
+    NG_AddToBO_Simple(player, 10, c_ZU_Drone, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_RoachWarren, true);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+    NG_AddToBO_Simple(player, 1, c_ZR_ZerglingSpeed, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Zergling, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Roach, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO_Simple(player, 80, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, c_ZU_Queen, false);
+    NG_AddToBO_Simple(player, 2, NG_Gas, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Zergling, true);
+    NG_AddToBO_Simple(player, 1, c_ZB_Lair, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoExpand, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_HydraliskDen, false);
+    NG_AddToBO_Simple(player, 8, c_ZU_Roach, true);
+    NG_AddToBO_Simple(player, -25, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Hydralisk, false);
+    NG_AddToBO_Simple(player, 10, c_ZU_Roach, false);
+    NG_AddToBO_Simple(player, 30, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, c_ZR_HydraliskRange, false);
+    NG_AddToBO_Simple(player, 1, c_ZB_UltraliskCavern, true);
+    NG_AddToBO_Simple(player, 0, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 100, NG_SetAllinChance, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+//13 Overlord 1
+//17 Hatchery
+//18 Extractor + SpawningPool
+//@100M Overlord
+//@200M Zergling 8
+//@300M Queen 2
+////8, also 2x4
+//@100V ZerglingSpeed
+////Metabolismus Schub Forschung
+//@150M RoachWarren
+////Wichtig: KI soll Dronen bauen
+//@150M Extractor 2
+//@200M Queen
+//@150V Roach 5
+//@100V Lair
+//@500M Hatchery
+//@300M EvolutionChamber 2
+//@300V UpgradeRange
+//@300V UpgradeArmor
+//@200M Queen
+////Ab hier Roach Ravager Spam. Sobald +1 +1 fertig ist, pushen

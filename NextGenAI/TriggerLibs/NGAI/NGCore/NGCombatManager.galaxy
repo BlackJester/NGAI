@@ -1,0 +1,564 @@
+const int NG_maxCPs = 10;
+const fixed NG_pointCombineThreshold = 14.0;
+const int NG_c_cs_defend = 0;
+const int NG_c_cs_attack = 1;
+const int NG_c_cs_allin = 2;
+const int NG_c_cs_rally = 3;
+const int NG_retreatTollerance = 10; //prevents instant retreat as soon as we have lost 1 unit
+
+const fixed NG_c_ExpansionMark_mindist = 15;
+const fixed NG_c_ExpansionMark_maxdist = 50;
+
+const int NG_requiredUnitsForAttack = 7;
+const fixed NG_attackSupplyThreshold = 0.90;
+const fixed NG_DefenseOrderCooldown = 2.0;
+const fixed NG_StatusChangeThreshold = 8.0;
+const int NG_MaxMineralCircles = 20;
+const fixed NG_OverlordScoutTime = 180.0;
+
+struct mineralCircle {
+    point position;
+    bool hostile; //Not used yet
+    fixed scoutSent;    //Only used by overlords right now
+    int countedMinerals;
+};
+
+fixed[8] NG_NextPossibleDefenseOrder;
+NG_CombatPoint[8][NG_maxCPs] CurrentCPs;
+int[8] CombatStatus;
+int[8] AggroLevel;
+int[8] NG_enemy;
+int[8] OverlordIndexOffset;
+mineralCircle[8][NG_MaxMineralCircles] MineralCircles;
+fixed[8] LastCombatMoment;
+
+trigger NG_Death_Trigger;
+trigger baseUnderAttack;
+
+int NG_getCombatState(int player) {
+    return CombatStatus[player - 1];
+}
+
+void NG_setCombatState(int player, int state) {
+    CombatStatus[player - 1] = state;
+}
+
+point NG_GetOverlordDestination(int player) {
+    int i = 0;
+    int j = 0;
+    bool foundPosition = false;
+    int index = OverlordIndexOffset[player - 1];
+    fixed time = GameGetMissionTime();
+    OverlordIndexOffset[player - 1] += 1;
+    while (i < NG_MaxMineralCircles) {
+        index = (OverlordIndexOffset[player - 1] + i) % NG_MaxMineralCircles;
+        if (MineralCircles[player - 1][index].position == null || MineralCircles[player - 1][index].scoutSent > time) {
+            i += 1;
+            continue;
+        }
+        j = 0;
+        while (j < NG_maxCPs) {
+            if (CurrentCPs[player-1][j].position==null||DistanceBetweenPoints(MineralCircles[player - 1][index].position, CurrentCPs[player - 1][j].position) > 18) {
+                foundPosition = true;
+            } else {
+                foundPosition = false;
+
+                NG_debugCombat("Not going near Combat Point " + IntToString(j)+" with Overlord Scouts");
+                break;
+            }
+            j += 1;
+        }
+        if (foundPosition) {
+            MineralCircles[player - 1][index].scoutSent = time + NG_OverlordScoutTime;
+            return MineralCircles[player - 1][index].position;
+        }
+        i += 1;
+    }
+    return null;
+}
+
+point NG_BestAttackPoint(int player) {
+    int i = 0;
+    fixed bestweight = 0.0;
+    int bestindex = 0;
+    while (i < NG_maxCPs) {
+        if (CurrentCPs[player - 1][i].weight > bestweight) {
+            bestindex = i;
+            bestweight = CurrentCPs[player - 1][i].weight;
+        }
+        i += 1;
+    }
+    return CurrentCPs[player - 1][bestindex].position;
+}
+
+void NG_CombineMineralPoints(int player, int index, point p) {
+    fixed additionWeight = 1 / (IntToFixed(MineralCircles[player - 1][index].countedMinerals) + 1.0);
+    fixed standardWeight = 1 - additionWeight;
+    MineralCircles[player - 1][index].position = Point((PointGetX(MineralCircles[player - 1][index].position) * standardWeight) + (PointGetX(p) * additionWeight), (PointGetY(MineralCircles[player - 1][index].position) * standardWeight) + (PointGetY(p) * additionWeight));
+    MineralCircles[player - 1][index].countedMinerals += 1;
+}
+
+void NG_MarkPotentialExpansions(int player) {
+    unitgroup ug = AIFindUnits(0, null, PlayerStartLocation(NG_GetEnemyPlayer(player)), NG_c_ExpansionMark_maxdist, 0);
+    unit cur;
+    int i = 0;
+    int j = RandomInt(0, NG_MaxMineralCircles - 1);
+    int p = 0;
+    fixed distance;
+    for (i = 1; i <= UnitGroupCount(ug, c_unitCountAll); i = i + 1) {
+        cur = UnitGroupUnit(ug, i);
+        if (UnitGetType(cur) == "MineralField") {
+            //DebugAI("Mineral Field detected");
+            distance = DistanceBetweenPoints(UnitGetPosition(cur), PlayerStartLocation(NG_GetEnemyPlayer(player)));
+            NG_AddAttackPoint(player, UnitGetPosition(cur), (NG_c_ExpansionMark_maxdist - distance) / NG_c_ExpansionMark_maxdist);
+        }
+    }
+
+    //init all mineral circles with null
+    i = 0;
+    while (i < NG_MaxMineralCircles) {
+        MineralCircles[player - 1][i].position = null;
+        i += 1;
+    }
+
+    ug = AIFindUnits(0, null, PlayerStartLocation(player), 500, 0);
+    //Init all mineral circles values
+    i = 0;
+    for (i = 1; i <= UnitGroupCount(ug, c_unitCountAll); i = i + 1) {
+        cur = UnitGroupUnit(ug, i);
+        if (UnitGetType(cur) == "MineralField") {
+            //DebugAI("Mineral Field detected");
+            p = 0;
+            while (p < NG_MaxMineralCircles) {
+                if (MineralCircles[player - 1][p].position != null && DistanceBetweenPoints(MineralCircles[player - 1][p].position, UnitGetPosition(cur)) < 9) {
+                    NG_CombineMineralPoints(player, p, UnitGetPosition(cur));
+                    break;
+                }
+                p += 1;
+            }
+            if (p == NG_MaxMineralCircles) {
+                MineralCircles[player - 1][j].position = UnitGetPosition(cur);
+                MineralCircles[player - 1][j].countedMinerals = 1;
+                j = (j + 1) % NG_MaxMineralCircles;
+            }
+        }
+    }
+}
+
+bool NG_DicerollAllIn(int player) {
+
+    return g_NG_AllinChance[player - 1] > RandomInt(0, 100);
+}
+
+void NG_initCombatManager(int player) {
+    NG_FindEnemy(player);
+    NG_NextPossibleDefenseOrder[player - 1] = 0.0;
+    AggroLevel[player - 1] = -50;
+    NG_AddAttackPoint(player, PlayerStartLocation(NG_GetEnemyPlayer(player)), 25.0);
+    NG_UnitDied_Init();
+    NG_BaseUnderAttack_Init();
+    CombatStatus[player - 1] = NG_c_cs_rally;
+
+}
+
+void NG_SetAggroLevel(int player, int aggro) {
+    AggroLevel[player - 1] = aggro;
+    NG_debugCombat("Aggro Level or Player " + IntToString(player) + "set to " + IntToString(aggro));
+    DebugAI("Aggro Changed");
+}
+
+int NG_GetAggroLevel(int player) {
+    return AggroLevel[player - 1];
+}
+
+fixed NG_BestAttackWeight(int player) {
+    //Performance can be increased. Only used for testing right now
+    int i = 0;
+    fixed bestweight = 0.0;
+    int bestindex = 0;
+    while (i < NG_maxCPs) {
+        if (CurrentCPs[player - 1][i].weight > bestweight) {
+            bestindex = i;
+            bestweight = CurrentCPs[player - 1][i].weight;
+        }
+        i += 1;
+    }
+    return CurrentCPs[player - 1][bestindex].weight;
+
+}
+
+void NG_ConquerCombatPoint(int player, structref<NG_CombatPoint> combatPoint) {
+    unitgroup ownUnits;
+    unitgroup hostileBuildings;
+    string filter = c_targetFilterVisibleName + "," + c_targetFilterStructureName + ";-";
+
+    ownUnits = AIFindUnits(player, c_nullString, combatPoint.position, 4, c_unitCountAll);
+    if (UnitGroupCount(ownUnits, c_unitCountAll) > 0) {
+        //check for buildings nearby
+        hostileBuildings = UnitGroupAlliance(player, c_unitAllianceEnemy, RegionCircle(combatPoint.position, 8), UnitFilterStr(filter), c_unitCountAll);
+        if (UnitGroupCount(hostileBuildings, c_unitCountAll) == 0) {
+            // check last since units of our group gets attacked
+            if (NG_unitGroupGetTimeSinceLastAttack(ownUnits) > 3) {
+                //reduce Weight by 75%, so at some point it's not the highest rated combat point anymore, but still exists (-> AI still remembers it)
+                combatPoint.weight = combatPoint.weight / 4.0;
+                NG_debugCombat("Conquering Combat Point! Weight = " + FixedToString(combatPoint.weight, 4));
+                NG_ConquestShittalk(player);
+            } else {
+                NG_debugCombat("Combat Point contested! We are getting Attacked");
+            }
+        } else {
+            NG_debugCombat("Combat Point contested! Buildings nearby");
+        }
+    }
+}
+
+bool NG_PointRoughlyInCustomRange(point p1, point p2, fixed range) {
+    //Optimised: Does not require a sqrt operation, but only has a cubic scan range instead of a circular one.
+    bool inRange = true;
+    inRange = (p1 != null && p2 != null);
+    inRange = inRange && !(PointGetX(p1) + range < PointGetX(p2) || PointGetX(p1) - range > PointGetX(p2));
+    inRange = inRange && !(PointGetY(p1) + range < PointGetY(p2) || PointGetY(p1) - range > PointGetY(p2));
+    //if (!inRange) {
+    //    DebugAI(" - > Point is actually out of range!");
+    //}
+    return inRange;
+}
+
+bool NG_PointRoughlyInRange(point p1, point p2) {
+    //Optimised: Does not require a sqrt operation, but only has a cubic scan range instead of a circular one.
+    bool inRange = true;
+    inRange = (p1 != null && p2 != null);
+    inRange = inRange && !(PointGetX(p1) + NG_pointCombineThreshold < PointGetX(p2) || PointGetX(p1) - NG_pointCombineThreshold > PointGetX(p2));
+    inRange = inRange && !(PointGetY(p1) + NG_pointCombineThreshold < PointGetY(p2) || PointGetY(p1) - NG_pointCombineThreshold > PointGetY(p2));
+    //if (!inRange) {
+    //    DebugAI(" - > Point is actually out of range!");
+    //}
+    return inRange;
+}
+
+void NG_DebugPing(point p, string model, color cl) {
+    PingCreate(PlayerGroupAll(), model, p, cl, 4.0);
+}
+
+point NG_CombinePoints(point p1, fixed w1, point p2, fixed w2) {
+
+    fixed absoluteWeight = w1 + w2;
+    if (absoluteWeight == 0) {
+        return p2;  //prevents divide by zero exception
+    }
+    //NG_DebugPing(p1, "BeaconClaimPing");
+    //NG_DebugPing(p2, "BeaconCustomPing");
+    return Point(((PointGetX(p1) * w1) + (PointGetX(p2) * w2)) / absoluteWeight, ((PointGetY(p1) * w1) + (PointGetY(p2) * w2)) / absoluteWeight);
+}
+
+void NG_DebugCombatPoints(int player) {
+    color pcolor = libNtve_gf_ConvertPlayerColorToColor(PlayerGetColorIndex(player, false));
+    int i = 0;
+    for (i = 0; i < NG_maxCPs; i += 1) {
+        NG_DebugPing(CurrentCPs[player - 1][i].position, "PingNumeric" + IntToString(i), pcolor);
+        DebugAI("Weight for Point " + IntToString(i) + " = " + FixedToString(CurrentCPs[player - 1][i].weight, 4));
+    }
+}
+
+void NG_AddAttackPoint(int player, point position, fixed weight) {
+    int i = 0;
+    int combineindex = -1;
+    fixed lowestweight = 999.0;
+    int lowestIndex = 0;
+    //Scan for nearby points
+    while (i < NG_maxCPs) {
+        //Check if they should be combined
+        if (NG_PointRoughlyInRange(position, CurrentCPs[player - 1][i].position)) {
+            combineindex = i;
+            break;
+        }
+        //Also remember the smallest index for replacement
+        if (lowestweight > CurrentCPs[player - 1][i].weight) {
+            lowestIndex = i;
+            lowestweight = CurrentCPs[player - 1][i].weight;
+        }
+        i += 1;
+    }
+    if (combineindex >= 0) {
+        //Combining Points
+        CurrentCPs[player - 1][combineindex].position = NG_CombinePoints(CurrentCPs[player - 1][combineindex].position, CurrentCPs[player - 1][combineindex].weight, position, weight);
+        //NG_DebugPing(CurrentCPs[player - 1][combineindex].position, "BeaconClaimPing");
+        CurrentCPs[player - 1][combineindex].weight += weight;
+        //NG_debugCombat("Combined Combat Point for Player " + IntToString(player) + " at Index " + IntToString(combineindex));
+    } else {
+        //replacing lowest weighted point
+        CurrentCPs[player - 1][lowestIndex].weight = weight;
+        CurrentCPs[player - 1][lowestIndex].position = position;
+        //NG_debugCombat("New Combat Point for Player " + IntToString(player) + " added to Index " + IntToString(lowestIndex));
+    }
+}
+
+void NG_UnitDied(int player, unit u, point damageSource) {
+    if (damageSource != null && EventUnitDamageEffect() != null && player > 0 && player < 9) {
+        NG_AddAttackPoint(player, damageSource, UnitTypeGetProperty(UnitGetType(u), c_unitPropSuppliesUsed));
+        //NG_debugCombat(UnitGetType(EventUnit()) + " of player " + IntToString(EventPlayer()) + " died");
+    } else {
+        //DebugAI("Unit died without getting damaged (probably morph or something along those lines)");
+    }
+}
+
+bool NG_UnitDied_Func(bool testConds, bool runActions) {
+    NG_UnitDied(EventPlayer(), EventUnit(), EventUnitDamageSourcePoint());
+
+    return true;
+}
+
+bool NG_BaseUnderAttack_Func(bool testConds, bool runActions) {
+    point p;
+    point town;
+    int player;
+    int i;
+    int expCount;
+    fixed time = GameGetMissionTime();
+
+    player = UnitGetOwner(EventUnit());
+    if (!NG_playerIsNGAI(player)) {
+        return false;
+    }
+
+    LastCombatMoment[player - 1] = time;
+    if (NG_NextPossibleDefenseOrder[player - 1] > time) {
+        return false;
+    }
+    NG_NextPossibleDefenseOrder[player - 1] = GameGetMissionTime() + NG_DefenseOrderCooldown;
+
+    p = UnitGetPosition(EventUnit());
+
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        expCount = AIKnownUnitCount(player, player, c_ZB_Hatchery_Alias);
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        expCount = AIKnownUnitCount(player, player, c_PB_Nexus);
+    } else if (PlayerRace(player) == c_RaceStringTerran) {
+        expCount = AIKnownUnitCount(player, player, c_TB_CommandCenter_Alias);
+    }
+
+    while (i < expCount) {
+        town = AIGetTownLocation(player, i);
+        if (town != null) {
+            if (DistanceBetweenPoints(town, p) < 27) {
+                NG_setCombatState(player, NG_c_cs_defend);
+                NG_prepareDefenses(player);
+                NG_debugCombat("Base Under Attack");
+                NG_BaseUnderAttackShittalk(player);
+                NG_defendAttack(player, p, false, false);
+                NG_setTargetPoint(player, c_NG_DefendWave, p);
+                NG_setTargetPoint(player, c_NG_WaitWave, p);
+                if (CombatStatus[player - 1] == NG_c_cs_defend) {
+                    NG_WMattack(player, p, false);
+                }
+            }
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+void NG_FindEnemy(int player) {
+    int human = 0;
+    int notme_ai = 0;
+    int i = 1;
+    while (i <= 8) {
+        if (PlayerStatus(i) == c_playerStatusActive && i != player) {
+            if (libNtve_gf_PlayerIsEnemy(player, i, libNtve_ge_PlayerRelation_Enemy)) {
+                if (PlayerType(i) == c_playerTypeComputer) {
+                    notme_ai = i;
+                } else {
+                    human = i;
+                }
+            }
+        }
+        i += 1;
+    }
+    if (notme_ai != 0) {
+        DebugAI("NGAI " + IntToString(player) + " is playing vs AI Player " + IntToString(notme_ai));
+        NG_enemy[player - 1] = notme_ai;
+    } else {
+        DebugAI("NGAI " + IntToString(player) + " is playing vs Human Player " + IntToString(human));
+        NG_enemy[player - 1] = human;
+    }
+}
+
+int NG_GetEnemyPlayer(int player) {
+    return NG_enemy[player - 1];
+}
+
+void NG_CheckCombatPoint(int player) {
+    structref < NG_CombatPoint > combatPoint;
+    int i;
+
+    // check every used combat Point of player
+    for (i = 0; i < NG_maxCPs; i += 1) {
+        combatPoint = CurrentCPs[player - 1][i];
+        if (combatPoint.position != c_nullPoint) {
+            NG_ConquerCombatPoint(player, combatPoint);
+        }
+
+    }
+}
+
+void NG_CombatLoop(int player) {
+    // int enemySupplyCompare = FixedToInt(NG_spyGetEstimatedSupply(player, NG_GetEnemyPlayer(player)) * NG_attackSupplyThreshold);
+    // unitgroup attackWave = g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup;
+    int combatState = NG_updateCombatState(player);
+
+    // do your thing
+    if (combatState == NG_c_cs_rally) {
+        NG_moveAllOutOfRangeUnitsToPoint(player, NG_getRallyPoint(player), c_NG_RallyRadius);
+        NG_rallyWavesAtRallyPoint(player);
+
+    } else if (combatState == NG_c_cs_allin) {
+        NG_CheckCombatPoint(player);
+        NG_AttackWithWave(player, NG_BestAttackPoint(player), c_NG_AttackWave);
+        NG_reinfAttack(player, NG_BestAttackPoint(player), true);
+    } else if (combatState == NG_c_cs_defend) {
+        // should we do some magic in defend state
+        // or just let our troops go?
+    }
+}
+
+int NG_updateCombatState(int player) {
+    int newState = NG_c_cs_rally;   // default
+    int currentState = NG_getCombatState(player);
+    bool attack = false;
+    bool defend = false;
+    bool retreat = false;
+
+    if (currentState == NG_c_cs_rally) {
+        attack = NG_CheckForAttack(player);
+        defend = NG_CheckForDefence(player);
+
+        NG_debugCombat("att: " + IntToString(BoolToInt(attack)) + " / def: " + IntToString(BoolToInt(defend)));
+
+        if (!attack && !defend) {
+            newState = NG_c_cs_rally;
+            NG_debugCombat("1");
+        } else if (attack && !defend) {
+            newState = NG_c_cs_allin;
+            NG_debugCombat("2");
+        } else if (defend) {
+            newState = NG_c_cs_defend;
+            NG_debugCombat("3");
+        }
+    } else if (currentState == NG_c_cs_defend) {
+        if (NG_CheckForDefence(player)) {
+            newState = NG_c_cs_defend;
+            NG_debugCombat("4");
+        }
+    } else if (currentState == NG_c_cs_allin) {
+        if (!NG_CheckForRetreat(player)) {
+            newState = NG_c_cs_allin;
+            NG_debugCombat("5");
+        } else {
+            NG_RetreatShittalk(player);
+        }
+    }
+
+    NG_setCombatState(player, newState);
+    return newState;
+}
+
+//void NG_CombatLoop(int player) {
+//
+//    int enemySupplyCompare = FixedToInt(NG_spyGetEstimatedSupply(player, NG_GetEnemyPlayer(player)) * NG_attackSupplyThreshold);
+//    unitgroup attackWave = g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup;
+//
+//    // if Status is Idle check if it is worth to attack
+//    if (CombatStatus[player - 1] == NG_c_cs_defend || CombatStatus[player - 1] == NG_c_cs_rally) {
+//        if (enemySupplyCompare < PlayerGetPropertyInt(player, c_playerPropSuppliesUsed) + AggroLevel[player - 1]) {
+//
+//            if (NG_DicerollAllIn(player) || PlayerGetPropertyInt(player, c_playerPropSuppliesUsed) > 190) {
+//                CombatStatus[player - 1] = NG_c_cs_allin;
+//                NG_WMattackAllinAfterMerge(player, NG_BestAttackPoint(player));
+//                NG_debugCombat("Resistance is futile!");
+//                DebugAI("status = allin");
+//            } else {
+//                CombatStatus[player - 1] = NG_c_cs_attack;
+//                NG_debugCombat("Pressuring the enemy!");
+//                DebugAI("status = attack");
+//            }
+//        } else {
+//            CombatStatus[player - 1] = NG_c_cs_rally;
+//        }
+//
+//    } else if (CombatStatus[player - 1] == NG_c_cs_attack) {
+//        if (enemySupplyCompare > PlayerGetPropertyInt(player, c_playerPropSuppliesUsed) + AggroLevel[player - 1] + NG_retreatTollerance) {
+//
+//            CombatStatus[player - 1] = NG_c_cs_defend;
+//
+//            NG_moveWave(player, AIGetGatherDefLocation(player, 0), c_NG_AttackWave);
+//            NG_debugCombat("Player " + IntToString(player) + " stops attacking");
+//        }
+//        NG_CheckCombatPoint(player);
+//        if (UnitGroupCount(attackWave, c_unitCountAll) > NG_requiredUnitsForAttack) {
+//            NG_WMattack(player, NG_BestAttackPoint(player), true);
+//        }
+//    } else if (CombatStatus[player - 1] == NG_c_cs_allin) {
+//        if (enemySupplyCompare > PlayerGetPropertyInt(player, c_playerPropSuppliesUsed) + AggroLevel[player - 1] + NG_retreatTollerance) {
+//            CombatStatus[player - 1] = NG_c_cs_defend;
+//            NG_WMattack(player, AIGetGatherDefLocation(player, 0), false);
+//            //NG_moveWave(player, g_NG_Waves[player - 1][c_NG_DefendWave].targetPoint, c_NG_AttackWave);
+//            NG_debugCombat("Player " + IntToString(player) + " stops attacking");
+//        }
+//        NG_CheckCombatPoint(player);
+//        if (UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll) + UnitGroupCount(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_unitCountAll) > NG_requiredUnitsForAttack) {
+//            //NG_WMattackAllin(player, NG_BestAttackPoint(player));
+//            NG_AttackWithWave(player, NG_BestAttackPoint(player));
+//        }
+//    } else {
+//        NG_debugCombat("Unknown Status!");
+//    }
+//    if (CombatStatus[player - 1] == NG_c_cs_rally) {
+//        NG_moveAllOutOfRangeUnitsToPoint(player, NG_getRallyPoint(player), 20.0);
+//        NG_rallyWavesAtRallyPoint(player);
+//    }
+//}
+
+bool NG_CheckForAttack(int player) {
+    int enemySupplyCompare = FixedToInt(NG_spyGetEstimatedSupply(player, NG_GetEnemyPlayer(player)) * NG_attackSupplyThreshold);
+    int attackWaveCount = UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll);
+    int defendWaveCount = 0;
+
+    if (NG_getCombatState(player) == NG_c_cs_allin) {
+        defendWaveCount = UnitGroupCount(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_unitCountAll);
+    }
+
+    if (attackWaveCount + defendWaveCount > NG_requiredUnitsForAttack && enemySupplyCompare < PlayerGetPropertyInt(player, c_playerPropSuppliesUsed) + AggroLevel[player - 1]) {
+
+        NG_debugCombat("status = allin");
+        return true;
+    }
+    return false;
+}
+
+bool NG_CheckForRetreat(int player) {
+    int enemySupplyCompare = FixedToInt(NG_spyGetEstimatedSupply(player, NG_GetEnemyPlayer(player)) * NG_attackSupplyThreshold);
+
+    if (enemySupplyCompare > PlayerGetPropertyInt(player, c_playerPropSuppliesUsed) + AggroLevel[player - 1] + NG_retreatTollerance) {
+
+        NG_debugCombat("retreat!");
+        return true;
+    }
+    return false;
+}
+
+bool NG_CheckForDefence(int player) {
+    if (LastCombatMoment[player - 1] + NG_StatusChangeThreshold > GameGetMissionTime()) {
+        return true;
+    }
+    return false;
+}
+
+void NG_UnitDied_Init() {
+    NG_Death_Trigger = TriggerCreate("NG_UnitDied_Func");
+    TriggerAddEventUnitDied(NG_Death_Trigger, null);
+}
+
+void NG_BaseUnderAttack_Init() {
+    baseUnderAttack = TriggerCreate("NG_BaseUnderAttack_Func");
+    TriggerAddEventUnitAttacked(baseUnderAttack, null);
+}

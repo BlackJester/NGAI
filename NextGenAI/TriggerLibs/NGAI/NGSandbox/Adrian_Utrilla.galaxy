@@ -1,0 +1,103 @@
+void NG_Win(int player)
+{
+    DebugAI("Player " + IntToString(player) + " wins!");
+    GameOver(player, c_gameOverVictory, false, true);
+}
+
+void NG_AU_getEstimatedSupply(int player, int enemy) {
+    DebugAI("Estimated Supply: " + IntToString(NG_spyGetEstimatedSupply(player, enemy)));
+}
+
+const int c_enemyArraySize = 50;
+
+struct EnemyInfo {
+    unit enemyUnit;
+    int hp;
+    point location;
+};
+EnemyInfo[c_enemyArraySize] enemies;
+
+void AU_updateEnemy(unit enemy, point location, int hp) {
+    int i;
+    int firstFreeSpot = -1;
+    for (i = 0; i < c_enemyArraySize; i += 1) {
+        if (enemies[i].enemyUnit == enemy) {
+            if (UnitIsAlive(enemy)) {
+                enemies[i].location = location;
+                enemies[i].hp = hp;
+            } else {
+                enemies[i].enemyUnit = null;
+            }
+            return;
+        }
+        if (enemies[i].enemyUnit == null) {
+            if (firstFreeSpot == -1) {
+            	firstFreeSpot = i;
+            }
+        }
+    }
+    if (firstFreeSpot != -1) {
+    	i = firstFreeSpot;
+    }
+    if (i < c_enemyArraySize) {
+        enemies[i].enemyUnit = enemy;
+        enemies[i].hp = hp;
+        enemies[i].location = location;
+    }
+}
+
+void AU_updateEnemies(unitgroup scanGroup, point unitPoint, int range) {
+    unit u;
+    int health;
+    int i;
+
+    for (i = 1; i <= UnitGroupCount(scanGroup, c_unitCountAll); i += 1) {
+		u = UnitGroupUnit(scanGroup, i);
+        health = UnitGetPropertyInt(u, c_unitPropLifePercent, c_unitPropCurrent) +
+                 UnitGetPropertyInt(u, c_unitPropShieldsPercent, c_unitPropCurrent);
+        AU_updateEnemy(u, UnitGetPosition(u), health);
+    }
+}
+
+order AU_createAttackOrder(unit enemy) {
+    return OrderTargetingUnit(AbilityCommand(c_AB_Attack, 0), enemy);
+}
+
+void AU_StalkerAI_11(int player, unit aiUnit, unitgroup scanGroup) {
+    point position;
+    int sightRange;
+    order unitOrder;
+    unit enemy;
+    point attackPoint;
+    int minHp = 99999;
+    int i;
+
+    if (aiUnit != null) {
+    	position = UnitGetPosition(aiUnit);
+    } else {
+    	return;
+    }
+
+    sightRange = AIUnitInt(player, UnitGetType(aiUnit), c_fieldSightRange);
+
+    AU_updateEnemies(scanGroup, position, sightRange);
+
+    for (i = 0; i < c_enemyArraySize; i += 1) {
+        if (enemies[i].enemyUnit != null) {
+        	if (UnitIsAlive(enemies[i].enemyUnit)) {
+        	    if (enemies[i].hp < minHp) {
+	                minHp = enemies[i].hp;
+	                enemy = enemies[i].enemyUnit;
+	                attackPoint = enemies[i].location;
+            	}
+            }
+        }
+    }
+
+    if (enemy != null) {
+        AICast(aiUnit,
+            OrderTargetingUnit(AbilityCommand(c_AB_Attack, 0), enemy),
+            c_noMarker,
+            false);
+    }
+}

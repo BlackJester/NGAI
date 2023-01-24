@@ -1,0 +1,145 @@
+fixed[8] BurnerBuildOverflow;      //If you fail to create lots of burner units, at some point this will reach 1 and you'll build one burner unit
+fixed[8] CounterBuildOverflow;
+
+int NG_CalcBurnerCount(int player, int count){
+    fixed totalUnitImportance=0.0;
+    int absoluteBuildCount=0;
+    fixed basicUnitImportance;
+    //DebugAI("BO Importance for player "+IntToString(player)+" is "+IntToString(GetBoImportance(player)));
+    //DebugAI("Count: "+IntToString(count));
+    basicUnitImportance = (1.0-(GetBoImportance(player)/100.0))*IntToFixed(count);
+    if(count<=0){
+        return 0;
+    }
+    totalUnitImportance = BurnerBuildOverflow[player-1] + basicUnitImportance;
+    //DebugAI("Value before rounding: "+FixedToString(totalUnitImportance,4));
+    absoluteBuildCount=FixedToInt(totalUnitImportance);
+    //DebugAI("Value after rounding: "+IntToString(absoluteBuildCount));
+    BurnerBuildOverflow[player-1]=totalUnitImportance-absoluteBuildCount;
+    return absoluteBuildCount;
+}
+
+int NG_CalcBurnerCountFixed(int player, fixed count){
+    fixed totalUnitImportance=0.0;
+    int absoluteBuildCount=0;
+    fixed basicUnitImportance;
+    //DebugAI("BO Importance for player "+IntToString(player)+" is "+IntToString(GetBoImportance(player)));
+    //DebugAI("Count: "+IntToString(count));
+    basicUnitImportance = (1.0-(GetBoImportance(player)/100.0))*count;
+    if(count<=0){
+        return 0;
+    }
+    totalUnitImportance = BurnerBuildOverflow[player-1] + basicUnitImportance;
+    //DebugAI("Value before rounding: "+FixedToString(totalUnitImportance,4));
+    absoluteBuildCount=FixedToInt(totalUnitImportance);
+    //DebugAI("Value after rounding: "+IntToString(absoluteBuildCount));
+    BurnerBuildOverflow[player-1]=totalUnitImportance-absoluteBuildCount;
+    return absoluteBuildCount;
+}
+
+bool NG_TryBuildBurner(int player,string unitstring,int count){
+    
+    int absoluteBuildCount = NG_CalcBurnerCount(player,count);
+    
+    if(absoluteBuildCount>0){
+        NG_AddHighPrioUnit(player, absoluteBuildCount, unitstring);
+        return true;
+    }
+    return false;
+}
+
+void NG_TryUpdateBurner(int player, string unitString, int newCount) {
+    int i = 0;
+    int oldcount = 0;
+    int calculatedCount=0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == unitString && highPrioQueue[player - 1][i].number > 0) {
+            oldcount=highPrioQueue[player - 1][i].number;
+            calculatedCount = NG_CalcBurnerCount(player,newCount-oldcount);
+            highPrioQueue[player - 1][i].number = oldcount+calculatedCount;
+            NG_debugBuild("Updated " + unitString + " from Player " + IntToString(player) + " HighPrioQueue to new Value " + FixedToString(newCount,1));
+            return;
+        }
+        i = i + 1;
+    }
+    // Unit not found in highPrioQueue --> Add it
+    NG_TryBuildBurner(player, unitString,newCount);
+}
+
+bool NG_TryBuildBurnerFixed(int player,string unitstring,fixed count){
+    
+    int absoluteBuildCount = NG_CalcBurnerCountFixed(player,count);
+    
+    if(absoluteBuildCount>0){
+        NG_AddHighPrioUnit(player, absoluteBuildCount, unitstring);
+        return true;
+    }
+    return false;
+}
+
+
+void NG_TryUpdateBurnerFixed(int player, string unitString, fixed newCount) {
+    int i = 0;
+    int oldcount = 0;
+    int calculatedCount=0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == unitString && highPrioQueue[player - 1][i].number > 0) {
+            oldcount=highPrioQueue[player - 1][i].number;
+            calculatedCount = NG_CalcBurnerCountFixed(player,newCount-oldcount);
+            highPrioQueue[player - 1][i].number = oldcount+calculatedCount;
+            NG_debugBuild("Updated " + unitString + " from Player " + IntToString(player) + " HighPrioQueue to new Value " + IntToString(highPrioQueue[player - 1][i].number));
+            return;
+        }
+        i = i + 1;
+    }
+    // Unit not found in highPrioQueue --> Add it
+    NG_TryBuildBurner(player, unitString,FixedToInt(newCount));
+}
+
+int NG_CalcCounterCount(int player, int count){
+    
+    fixed totalUnitImportance=0.0;
+    int absoluteBuildCount=0;
+    fixed basicUnitImportance;
+    //DebugAI("BO Importance for player "+IntToString(player)+" is "+IntToString(GetBoImportance(player)));
+    //DebugAI("Count: "+IntToString(count));
+    basicUnitImportance = (1.0-(GetBoImportance(player)/100.0))*IntToFixed(count);
+    if(count<=0){
+        return 0;
+    }
+    totalUnitImportance = CounterBuildOverflow[player-1] + basicUnitImportance;
+    //DebugAI("Value before rounding: "+FixedToString(totalUnitImportance,4));
+    absoluteBuildCount=FixedToInt(totalUnitImportance);
+    //DebugAI("Value after rounding: "+IntToString(absoluteBuildCount));
+    CounterBuildOverflow[player-1]=totalUnitImportance-absoluteBuildCount;
+    return absoluteBuildCount;
+}
+
+bool NG_TryBuildCounter(int player,string unitstring,int count){
+    
+    int absoluteBuildCount = NG_CalcCounterCount(player,count);
+    
+    if(absoluteBuildCount>0){
+        NG_AddHighPrioUnit(player, absoluteBuildCount, unitstring);
+        return true;
+    }
+    return false;
+}
+
+void NG_TryUpdateCounter(int player, string unitString, int newCount) {
+    int i = 0;
+    int oldcount = 0;
+    int calculatedCount=0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == unitString && highPrioQueue[player - 1][i].number > 0) {
+            oldcount=highPrioQueue[player - 1][i].number;
+            calculatedCount = NG_CalcCounterCount(player,newCount-oldcount);
+            highPrioQueue[player - 1][i].number = oldcount+calculatedCount;
+            NG_debugBuild("Updated " + unitString + " from Player " + IntToString(player) + " HighPrioQueue to new Value " + IntToString(newCount));
+            return;
+        }
+        i = i + 1;
+    }
+    // Unit not found in highPrioQueue --> Add it
+    NG_TryBuildBurner(player, unitString,newCount);
+}

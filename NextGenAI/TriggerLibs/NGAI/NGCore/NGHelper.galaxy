@@ -1,0 +1,133 @@
+//==================================================================================================
+// Galaxy fuer Helperfunktionen
+//==================================================================================================
+
+// Funktion fuer die Rueckgabe der Bau ID des Gebauedes
+int NG_getBuildingId(string build) {
+
+    if (build == c_ZB_Hatchery || build == c_TB_CommandCenter || build == c_PB_Nexus) {
+        return 0;
+    } else if (build == c_TB_SupplyDepot || build == c_PB_Pylon) {
+        return 1;
+    } else if (build == c_ZB_Extractor || build == c_TB_Refinery || build == c_PB_Assimilator) {
+        return 2;
+    } else if (build == c_ZB_SpawningPool || build == c_TB_Barracks || build == c_PB_Gateway) {
+        return 3;
+    } else if (build == c_ZB_EvolutionChamber || build == c_TB_EngineeringBay || build == c_PB_Forge) {
+        return 4;
+    } else if (build == c_ZB_HydraliskDen || build == c_TB_MissileTurret || build == c_PB_FleetBeacon) {
+        return 5;
+    } else if (build == c_ZB_Spire || build == c_TB_Bunker || build == c_PB_TwilightCouncil) {
+        return 6;
+    } else if (build == c_ZB_UltraliskCavern || build == c_PB_PhotonCannon) {
+        return 7;
+    } else if (build == c_ZB_InfestationPit || build == c_TB_SensorTower) {
+        return 8;
+    } else if (build == c_ZB_NydusNetwork || build == c_TB_GhostAcademy || build == c_PB_Stargate) {
+        return 9;
+    } else if (build == c_ZB_BanelingNest || build == c_TB_Factory || build == c_PB_TemplarArchives) {
+        return 10;
+    } else if (build == c_TB_Starport || build == c_PB_DarkShrine) {
+        return 11;
+    } else if (build == c_PB_RoboticsBay) {
+        return 12;
+    } else if (build == c_ZB_RoachWarren || build == c_TB_Armory || build == c_PB_RoboticsFacility) {
+        return 13;
+    } else if (build == c_ZB_SpineCrawler || build == c_PB_CyberneticsCore) {
+        return 14;
+    } else if (build == c_ZB_SporeCrawler || build == c_TB_FusionCore) {
+        return 15;
+    } else {
+        return 0;
+    }
+}
+
+// Use this to freeze the game
+// true = freeze
+// false = unfreeze
+void NG_freezeGame(bool freezeState) {
+    UnitPauseAll(freezeState);
+}
+
+// return true if player is NGAI
+bool NG_playerIsNGAI(int player) {
+    return AIPlayerDifficulty(player) == c_skirVeryEasy;
+}
+
+bool NG_playerIsDefeated(int player) {
+    unitgroup units = UnitGroup(c_nullString, player, RegionEntireMap(), null, 0);
+    return UnitGroupCount(units, c_unitCountAll) == 0;
+}
+
+int NG_playerGetRaceIndex(int player) {
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        return c_NGUID_INDEX_ZERG;
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        return c_NGUID_INDEX_PROTOSS;
+    } else if (PlayerRace(player) == c_RaceStringTerran) {
+        return c_NGUID_INDEX_TERRAN;
+    }
+    return -1;
+}
+
+string NG_playerTownString(int player) {
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        return c_ZB_Hatchery;
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        return c_PB_Nexus;
+    } else if (PlayerRace(player) == c_RaceStringTerran) {
+        return c_TB_CommandCenter;
+    }
+    return c_nullString;
+}
+
+bool NG_unitIsTown(unit u) {
+    int owner = UnitGetOwner(u);
+
+    if (UnitGetType(u) == NG_playerTownString(owner)) {
+        return true;
+    }
+    return false;
+}
+
+// Iterates over the passed wave and sums up the supply of each unit in the wave
+fixed NG_getSupplyInWave(unitgroup ngwave) {
+    int i = 1;
+    fixed sumSupply = 0;
+
+    for (i = 1; i <= UnitGroupCount(ngwave, c_unitCountAll); i = i + 1) {
+        sumSupply += UnitTypeGetProperty(UnitGetType(UnitGroupUnit(ngwave, i)), c_unitPropSuppliesUsed);
+    }
+
+    return sumSupply;
+}
+
+int NG_GetPlayerMinerals(int player){
+    return PlayerGetPropertyInt(player, c_playerPropMinerals);
+}
+
+int NG_GetPlayerVespene(int player){
+    return PlayerGetPropertyInt(player, c_playerPropVespene);
+}
+
+int NG_GetUnitCount(int player, string unitString){
+    return AIKnownUnitCount(player, player, unitString);
+}
+
+unitgroup NG_GetEnemyUnits(int player, unitgroup group){
+    return UnitGroupFilterAlliance(group, player, c_unitAllianceEnemy, 200);
+}
+
+int NG_unitGroupGetTimeSinceLastAttack(unitgroup group) {
+    int i;
+    int lowestLastAttackTime = 9001;
+    int unitLastAttack;
+
+    for (i = 1; i <= UnitGroupCount(group, c_unitCountAll); i += 1) {
+        unitLastAttack = AILastAttack(UnitGroupUnit(group, i));
+        if (unitLastAttack < lowestLastAttackTime) {
+            lowestLastAttackTime = unitLastAttack;
+        }
+    }
+    return FixedToInt(AIGetTime()) - lowestLastAttackTime;
+}

@@ -1,0 +1,13 @@
+//==================================================================================================
+// Galaxy fuer die Terraner KI
+//==================================================================================================
+
+void NG_initTerran() {
+    // add buildOrders to Commander Manager
+//    NG_addTerranCommander(NG_InitCCFirst, NG_InitCCFirstBurner, "TerranKevin", "CC First Burner", c_NGC_VERSUS_ALL_FLAG);
+//    NG_addTerranCommander(NG_ReaperAggro, NG_InitCCFirstBurner, "Switcher Tests","Fruehe Aggro mit Reaper und Hellions",c_NGC_VERSUS_ALL_FLAG);
+//    NG_addTerranCommander(NG_FastBanshee, NG_InitCCFirstBurner, "Horst","Fast Banshees",c_NGC_VERSUS_ALL_FLAG);
+  //  NG_addTerranCommander(NG_MechOpener, NG_InitCCFirstBurner, "Hubert", "likes Mechses", c_NGC_VERSUS_TERRAN_FLAG);
+    NG_addTerranCommander(NG_MechOpener, NG_InitCCFirstBurner, "Hubert", "likes Mechses", c_NGC_VERSUS_ALL_FLAG);
+//    NG_addTerranCommander(NG_AntiZerg, NG_InitCCFirstBurner, "Hans", "eats Zergs", c_NGC_VERSUS_TERRAN_FLAG);
+}

@@ -1,0 +1,109 @@
+void NG_ZergInitBurner1(int player) {
+    //            player, unitString  , buildOnce, Burning Ressource, minimalLevel, Build Count (fixed)
+    //NG_AddBurnPos(player, c_ZB_SpawningPool, true, NG_BurnMineral, 2, 1.0);
+    //NG_AddBurnPos(player, c_ZB_HydraliskDen, true, NG_BurnBoth, 2, 1.0);
+    //NG_AddBurnPos(player, c_ZB_GreaterSpire, true, NG_BurnBoth, 2, 1.0);
+
+    NG_AddBurnPosCapped(player, c_ZB_SporeCrawler, false, NG_BurnBoth, 5, 0.15, 10);
+    NG_AddBurnPosCapped(player, c_ZB_SpineCrawler, false, NG_BurnMineral, 5, 0.15, 10);
+
+    NG_AddBurnPos(player, c_ZU_Zergling, false, NG_BurnMineral, 2, 0.5);
+    NG_AddBurnPos(player, c_ZU_Roach, false, NG_BurnMineral, 2, 0.3);
+    NG_AddBurnPos(player, c_ZU_Hydralisk, false, NG_BurnMineral, 2, 0.2);
+
+    NG_AddBurnPos(player, c_ZU_Ravager, false, NG_BurnVespene, 2, 0.15);
+    NG_AddBurnPos(player, c_ZU_Lurker, false, NG_BurnVespene, 2, 0.05);
+    //NG_AddBurnPos(player, c_ZU_SwarmHost, false, NG_BurnVespene, 2, 0.05);
+
+    NG_AddBurnPos(player, c_ZU_Mutalisk, false, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_ZU_Corruptor, false, NG_BurnBoth, 2, 0.1);
+    NG_AddBurnPos(player, c_ZU_Ultralisk, false, NG_BurnBoth, 2, 0.1);
+}
+
+void NG_ZergInitBurnerRoachRavager(int player) {
+    NG_AddBurnPos(player, c_ZU_Zergling, false, NG_BurnMineral, 3, 0.7);
+    NG_AddBurnPos(player, c_ZU_Roach, false, NG_BurnMineral, 1, 0.3);
+
+    NG_AddBurnPos(player, c_ZU_Hydralisk, false, NG_BurnBoth, 3, 0.1);
+    NG_AddBurnPos(player, c_ZU_Roach, false, NG_BurnBoth, 1, 0.3);
+    NG_AddBurnPos(player, c_ZU_Ravager, false, NG_BurnBoth, 2, 0.2);
+
+    NG_AddBurnPos(player, c_ZU_Ravager, false, NG_BurnVespene, 2, 0.2);
+    NG_AddBurnPos(player, c_ZU_Infestor, false, NG_BurnVespene, 3, 0.1);
+    NG_AddBurnPos(player, c_ZU_Ultralisk, false, NG_BurnVespene, 10, 0.05);
+
+    NG_AddBurnPos(player, c_ZR_MissileAttacks1, true, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_ZR_MissileAttacks2, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_MissileAttacks3, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_GroundCarapace1, true, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_ZR_GroundCarapace2, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_GroundCarapace3, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks1, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks2, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks3, true, NG_BurnBoth, 4, 1);
+    NG_AddBurnPos(player, c_ZR_ZerglingHaste, true, NG_BurnMineral, 4, 1);
+    NG_AddBurnPos(player, c_ZR_Burrow, true, NG_BurnMineral, 3, 1);
+    NG_AddBurnPos(player, c_ZR_InfestorParasite, true, NG_BurnVespene, 3, 1);
+    NG_AddBurnPos(player, c_ZR_InfestorEnergy, true, NG_BurnVespene, 4, 1);
+    NG_PlayerSetSuperBurnerThreshold(player, 3, 4);
+}
+
+void NG_ZergInitBurnerLingAndAir(int player) {
+    //            player, unitString  , buildOnce, Burning Ressource, minimalLevel, Build Count (fixed)
+    //NG_AddBurnPos(player, c_ZB_SpawningPool, true, NG_BurnMineral, 2, 1.0);
+    //NG_AddBurnPos(player, c_ZB_HydraliskDen, true, NG_BurnBoth, 2, 1.0);
+    //NG_AddBurnPos(player, c_ZB_GreaterSpire, true, NG_BurnBoth, 2, 1.0);
+    NG_AddBurnPos(player, c_ZU_Zergling, false, NG_BurnMineral, 1, 1.5);
+
+    NG_AddBurnPos(player, c_ZU_Mutalisk, false, NG_BurnVespene, 1, 0.5);
+    NG_AddBurnPos(player, c_ZU_BroodLord, false, NG_BurnVespene, 3, 0.1);
+
+    NG_AddBurnPos(player, c_ZU_Mutalisk, false, NG_BurnBoth, 1, 0.5);
+    NG_AddBurnPos(player, c_ZU_Baneling, false, NG_BurnBoth, 1, 0.1);
+
+    NG_AddBurnPos(player, c_ZR_BanelingSpeed, true, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_ZR_Burrow, true, NG_BurnMineral, 3, 1);
+    NG_AddBurnPos(player, c_ZR_ZerglingHaste, true, NG_BurnMineral, 3, 1);
+    NG_AddBurnPos(player, c_ZR_FlyerAttacks1, true, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_ZR_FlyerAttacks2, true, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_ZR_FlyerAttacks3, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_FlyerCarapace1, true, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_ZR_FlyerCarapace2, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_FlyerCarapace3, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks1, true, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks2, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks3, true, NG_BurnBoth, 3, 1);
+    NG_PlayerSetSuperBurnerThreshold(player, 2, 2);
+}
+
+void NG_ZergInitBurnerGroundArmy(int player) {
+    //            player, unitString  , buildOnce, Burning Ressource, minimalLevel, Build Count (fixed)
+    //NG_AddBurnPos(player, c_ZB_SpawningPool, true, NG_BurnMineral, 2, 1.0);
+    //NG_AddBurnPos(player, c_ZB_HydraliskDen, true, NG_BurnBoth, 2, 1.0);
+    //NG_AddBurnPos(player, c_ZB_GreaterSpire, true, NG_BurnBoth, 2, 1.0);
+
+    NG_AddBurnPos(player, c_ZU_Zergling, false, NG_BurnMineral, 2, 0.5);
+    NG_AddBurnPos(player, c_ZU_Roach, false, NG_BurnBoth, 2, 0.3);
+
+    NG_AddBurnPos(player, c_ZU_Ultralisk, false, NG_BurnVespene, 2, 0.5);
+    NG_AddBurnPos(player, c_ZU_Infestor, false, NG_BurnVespene, 2, 0.1);
+
+    NG_AddBurnPos(player, c_ZU_Hydralisk, false, NG_BurnBoth, 2, 0.5);
+    NG_AddBurnPos(player, c_ZU_Roach, false, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_ZU_Baneling, false, NG_BurnBoth, 2, 0.2);
+
+    NG_AddBurnPos(player, c_ZR_BanelingSpeed, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_Burrow, true, NG_BurnMineral, 4, 1);
+    NG_AddBurnPos(player, c_ZR_ZerglingHaste, true, NG_BurnMineral, 5, 1);
+    NG_AddBurnPos(player, c_ZR_RoachSpeed, true, NG_BurnMineral, 5, 1);
+    NG_AddBurnPos(player, c_ZR_MissileAttacks1, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_MissileAttacks2, true, NG_BurnBoth, 5, 1);
+    NG_AddBurnPos(player, c_ZR_MissileAttacks3, true, NG_BurnBoth, 7, 1);
+    NG_AddBurnPos(player, c_ZR_GroundCarapace1, true, NG_BurnBoth, 3, 1);
+    NG_AddBurnPos(player, c_ZR_GroundCarapace2, true, NG_BurnBoth, 5, 1);
+    NG_AddBurnPos(player, c_ZR_GroundCarapace3, true, NG_BurnBoth, 7, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks1, true, NG_BurnBoth, 4, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks2, true, NG_BurnBoth, 6, 1);
+    NG_AddBurnPos(player, c_ZR_MeleeAttacks3, true, NG_BurnBoth, 8, 1);
+    NG_AddBurnPos(player, c_ZR_InfestorParasite, true, NG_BurnBoth, 8, 1);
+}

@@ -1,0 +1,4 @@
+void ng_tk_CreatePsi(int p, string x, string y)
+{
+	 PlayerCreateEffectPoint(p, "PsiStormPersistent", Point(StringToFixed(x),StringToFixed(y)));
+}

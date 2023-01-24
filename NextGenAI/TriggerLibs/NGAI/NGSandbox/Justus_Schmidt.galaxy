@@ -1,0 +1,152 @@
+// draw a line of worker frome base playersrc to base playerdest
+void NG_JS_DrawLine(int playersrc, int playerdest, string raceworker)
+{
+	point spawn1;
+	point spawn2;
+	fixed linelength;
+	fixed width;
+	fixed height;
+	fixed xratio;
+	fixed yratio;
+	int i;
+
+	// get base positions
+	spawn1 = PlayerStartLocation(playersrc);
+	spawn2 = PlayerStartLocation(playerdest);
+	width = PointGetX(spawn2) - PointGetX(spawn1);
+	height = PointGetY(spawn2) - PointGetY(spawn1);
+
+	// calc length between base
+	linelength = SquareRoot(width * width + height * height);
+	DebugAI("Die Linie ist " + FixedToString(linelength, 4) + " Punkte lang\n");
+
+	// calc ratio to draw a line
+	xratio = width / linelength; 
+	yratio = height / linelength; 
+
+	for (i = 0; i < linelength; i += 1) {
+			UnitCreate(1, raceworker, c_unitCreateIgnorePlacement, playersrc,
+					Point(PointGetX(spawn1) + i * xratio, PointGetY(spawn1) + i * yratio), 0.0);		
+	}
+}
+
+void NG_JS_getKnownUnits(int player, int enemy) {
+
+    DebugAI("----- Known Unit Count Player:" + IntToString(player) + " Enemy: " + IntToString(enemy) + " -----");
+    DebugAI("----- Known Supply:" + IntToString(NG_spyGetKnownSupply(player, enemy)) + "Est. Supply:" + IntToString(NG_spyGetEstimatedSupply(player, enemy)));
+    // start enumerator loop
+    NG_spyEnemyArmyLoopBegin(player, enemy);
+    while (!NG_spyArmyLoopDone()) {
+        DebugAI("Unit: " + NG_spyArmyLoopCurrentUnitString() + 
+                " Known: " + IntToString(NG_spyArmyLoopCurrentUnitCount()) + 
+                " Estimated: " + IntToString(NG_spyArmyLoopCurrentEstimatedUnitCount()));
+        // next step of loop
+        NG_spyArmyLoopStep();
+    }    
+    NG_spyArmyLoopEnd();
+
+    DebugAI("---------------------------------");
+}
+
+void NG_JS_testDebugMessages() {
+    DebugAIPlayer(1, "debugAiPlayer");
+    NG_debugInfo("info");
+    NG_debugWarning("warning");
+    NG_debugError("error");
+    NG_debugInit("init");
+    NG_debugBuild("build");
+    NG_debugSpy("spy");
+    NG_debugCommander("commander");
+    NG_debugCombat("combat");
+    NG_debugWave("wave");
+}
+
+unit JS_getEnemy(point aiPoint, unitgroup scanGroup, int range) {
+    unit enemy = c_nullUnit;
+    unit checkUnit;
+    int enemyHealth = 101;
+    int checkHealth;
+    int i;
+
+    for (i = 1; i <= UnitGroupCount(scanGroup, c_unitCountAll); i += 1) {
+        checkUnit = UnitGroupUnit(scanGroup, i);
+
+        // if unit is in range check life
+        if (DistanceBetweenPoints(aiPoint, UnitGetPosition(checkUnit)) < IntToFixed(range)) {
+
+            checkHealth = UnitGetPropertyInt(checkUnit, c_unitPropLifePercent, c_unitPropCurrent);
+            checkHealth += UnitGetPropertyInt(checkUnit, c_unitPropShieldsPercent, c_unitPropCurrent);
+            checkHealth = checkHealth / 2;
+
+            DebugAI("enemy Health:" + FixedToString(checkHealth, 2));
+            // store unit with lowest health
+            if (checkHealth < enemyHealth) {
+                enemyHealth = checkHealth;
+                enemy = checkUnit;
+            }
+        }
+    }
+    return enemy;
+}
+
+order JS_createAttackOrder(unit enemy) {
+    return OrderTargetingUnit(AbilityCommand(c_AB_Attack, 0), enemy);
+}
+
+void JS_StalkerAI_9(int player, unit aiUnit, unitgroup scanGroup) {
+    point unitPoint;
+    order unitOrder;
+    int weaponrange;
+    int sightrange;
+    string weapon;
+    unit enemy;
+
+    weapon = "ParticleDisruptors";
+    unitPoint = UnitGetPosition(aiUnit);
+    weaponrange = AIWeaponInt(player, weapon, c_fieldRange);
+    sightrange = AIUnitInt(player, UnitGetType(aiUnit), c_fieldSightRange);
+
+    enemy = JS_getEnemy(unitPoint, scanGroup, weaponrange);
+
+    // get enemy in sight
+    if (enemy == c_nullUnit
+            && UnitGetPropertyInt(aiUnit, c_unitPropMovementSpeedCurrent, c_unitPropCurrent) == 0) {
+        enemy = JS_getEnemy(unitPoint, scanGroup, sightrange);
+    }
+
+    // do not ask what i am doing here ^^
+    if (enemy != c_nullUnit) {
+        if (UnitGetPropertyInt(aiUnit, c_unitPropLifePercent, c_unitPropCurrent) < 100
+                && UnitGetPropertyInt(aiUnit, c_unitPropMovementSpeedCurrent, c_unitPropCurrent) == 0
+                && AIGetTime() - AILastAttack(aiUnit) < 1) {
+            AICastFlee(aiUnit, enemy, 8, c_noMarker);
+        }
+        else {
+            unitOrder = JS_createAttackOrder(enemy);
+            AICast(aiUnit, unitOrder, c_noMarker, false);
+        }
+    }
+}
+
+void JS_testUnitGroup(int player) {
+    unitgroup scan;
+
+    // get all units on map
+    scan = UnitGroup(null, -1, RegionEntireMap(), UnitFilterStr("-;-"), 0);
+    DebugAI("Units on map " + IntToString(UnitGroupCount(scan, c_unitCountAll)));
+
+    scan = UnitGroup(null, 1, RegionEntireMap(), null, 0);
+    DebugAI("Player " + IntToString(1) + " units count:" + IntToString(UnitGroupCount(scan, c_unitCountAll)));
+    scan = UnitGroup(null, 2, RegionEntireMap(), null, 0);
+    DebugAI("Player " + IntToString(2) + " units count:" + IntToString(UnitGroupCount(scan, c_unitCountAll)));
+
+    //  UnitGroupAlliance(player, c_unitAllianceEnemy, r, null, c_noMaxCount);
+    scan = UnitGroupAlliance(player, c_unitAllianceEnemy, RegionEntireMap(), null, 0);
+    DebugAI("Player " + IntToString(player) + " enemy units count:" + IntToString(UnitGroupCount(scan, c_unitCountAll)));
+
+    scan = UnitGroupAlliance(player, c_unitAllianceEnemy, RegionEntireMap(), UnitFilterStr("Visible;-"), 0);
+    DebugAI("Player " + IntToString(player) + " enemy visible units count:" + IntToString(UnitGroupCount(scan, c_unitCountAll)));
+
+    scan = UnitGroupAlliance(player, c_unitAllianceEnemy, RegionEntireMap(), UnitFilterStr("Visible,Structure;-"), 0);
+    DebugAI("Player " + IntToString(player) + " enemy visible buildings count:" + IntToString(UnitGroupCount(scan, c_unitCountAll)));
+}

@@ -1,0 +1,578 @@
+trigger timerTrigger;
+fixed[8] WMLastCallEstimate;
+const fixed WMEstimatedPeriod = 15.0;
+order attackMove;
+order move;
+const fixed maxD = 10.0;
+const fixed tollerancePerUnit = 0.05;
+const fixed dThresh = 15.0;
+// Attack Wave and Reinforcement wave can walk by guidance of their slowest unit
+const int maxNumOfSortedWaveMovements = 2;
+bool allinMode = false;
+bool isBlocking = false;
+fixed[8] NG_GetsKited;
+
+unit[8][maxNumOfSortedWaveMovements] slowestUnit;
+const fixed c_NG_maxDistanceToSlowestUnit = 0.2;
+
+void NG_SetKiting(int player, unit outOfRangeUnit, point centerOfRange) {
+    NG_debugWave("NGAI Gets Kited.");
+    NG_GetsKited[player - 1] = GameGetMissionTime() + 5.0;
+}
+
+void NG_AttackMoveToPoint(int player, unit outOfRangeUnit, point centerOfRange) {
+    OrderSetTargetPoint(attackMove, centerOfRange);
+    UnitIssueOrder(outOfRangeUnit, attackMove, c_orderQueueReplace);
+}
+
+void NG_MoveToPoint(int player, unit outOfRangeUnit, point centerOfRange) {
+    OrderSetTargetPoint(move, centerOfRange);
+    UnitIssueOrder(outOfRangeUnit, move, c_orderQueueReplace);
+}
+
+void NG_moveOutOfRangeUnitsToPoint(OutOfRangeFunction func, int player, unitgroup units, point rallyPoint, fixed radius) {
+    unitgroup inRangeUnits;
+    region filterRegion = RegionCircle(rallyPoint, radius);
+    unit tempUnit;
+    int i = 1;
+    int waveUnitCount = UnitGroupCount(units, c_unitCountAll);
+
+    inRangeUnits = UnitGroupFilterRegion(units, filterRegion, c_noMaxCount);
+
+    for (i = 1; i <= waveUnitCount; i += 1) {
+        tempUnit = UnitGroupUnit(units, i);
+        if (false == UnitGroupHasUnit(inRangeUnits, tempUnit)) {
+            func(player, tempUnit, rallyPoint);
+        }
+    }
+}
+
+void NG_useIssueOrder(string useIssue) {
+    if (StringEqual(useIssue, "true", false)) {
+        issueOrder = true;
+        NG_debugInfo("Using IssueOrder now");
+    } else if (StringEqual(useIssue, "false", false)) {
+        issueOrder = false;
+        NG_debugInfo("Using AICast now");
+    } else {
+        NG_debugInfo("Wrong Parameter, use 'true' or 'false'");
+    }
+}
+
+void NG_WMInit(int player) {
+    int i;
+    for (i = 0; i < 8; i = i + 1) {
+        g_NG_Waves[player - 1][i].waveGroup = UnitGroupEmpty();
+    }
+    g_NG_Waves[player - 1][c_NG_DefendWave].targetPoint = AIGetGatherDefLocation(player, 0);
+    NG_debugCombat("Initialized Waves");
+    //Init orders
+    attackMove = AICreateOrder(player, c_AB_Attack, 0);
+    move = AICreateOrder(player, c_AB_Move, 0);
+}
+
+point NG_getRallyPoint(int player) {
+    //return AIGetGatherDefLocation(player, 0);
+    return AIGetGatherLocation(player, -1);
+}
+
+void NG_rallyWavesAtRallyPoint(int player) {
+    order rally;
+
+    if (NG_GetsKited[player - 1] > GameGetMissionTime()) {
+        OrderSetTargetPoint(move, NG_getRallyPoint(player));
+        rally = move;
+    } else {
+        OrderSetTargetPoint(attackMove, NG_getRallyPoint(player));
+        rally = attackMove;
+    }
+
+    OrderSetTargetPoint(rally, NG_getRallyPoint(player));
+    UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, rally, c_orderQueueReplace);
+    UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, rally, c_orderQueueReplace);
+    UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, rally, c_orderQueueReplace);
+}
+
+void NG_moveAllOutOfRangeUnitsToPoint(int player, point rallyPoint, fixed radius) {
+    unitgroup waveUnits = g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup;
+    UnitGroupAddUnitGroup(waveUnits, g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup);
+    NG_moveOutOfRangeUnitsToPoint(NG_SetKiting, player, waveUnits, rallyPoint, radius);
+}
+
+unit NG_GetSlowestUnitByType(int player, unitgroup units, string type) {
+    unitfilter filter = UnitFilterStr(type + ";" + c_targetFilterDeadName);
+    unit slowestUnit;
+    unit tempUnit;
+    unitgroup filteredUnits;
+    int filteredUnitCount;
+    int i;
+    fixed slowestWalkingSpeed = 100.0;
+    fixed tempSpeed;
+
+    filteredUnits = UnitGroupFilter("", player, units, filter, c_noMaxCount);
+
+    filteredUnitCount = UnitGroupCount(filteredUnits, c_noMaxCount);
+
+    // Determine slowest ground unit
+    for (i = 1; i <= filteredUnitCount; i += 1) {
+        tempUnit = UnitGroupUnit(filteredUnits, i);
+
+        tempSpeed = UnitGetPropertyFixed(tempUnit, c_unitPropBaseMovementSpeed, true);
+        if (tempSpeed < slowestWalkingSpeed) {
+            slowestWalkingSpeed = tempSpeed;
+            slowestUnit = tempUnit;
+        }
+    }
+    return slowestUnit;
+}
+
+unit NG_GetSlowestGroundUnit(int player, unitgroup units) {
+    return NG_GetSlowestUnitByType(player, units, c_targetFilterGroundName);
+}
+
+unit NG_GetSlowestAirUnit(int player, unitgroup units) {
+    return NG_GetSlowestUnitByType(player, units, c_targetFilterAirName);
+}
+
+unit NG_GetSlowestUnit(int player, unitgroup units) {
+    unit slowestUnit;
+
+    slowestUnit = NG_GetSlowestGroundUnit(player, units);
+    if (UnitIsValid(slowestUnit) == false) {
+        // There are no Ground Units, get a Air Unit instead
+        slowestUnit = NG_GetSlowestAirUnit(player, units);
+        if (UnitIsValid(slowestUnit) == false) {
+            NG_debugWave("No slowest Unit found.");
+        }
+    }
+
+    return slowestUnit;
+}
+
+int NG_GetSlowesUnitWaveIndex(int waveNum) {
+    if (waveNum == c_NG_AttackWave) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+void NG_AttackWithWave(int player, point targetPoint, int waveNum) {
+    unitgroup waveUnits = g_NG_Waves[player - 1][waveNum].waveGroup;
+    point slowestUnitPosition;
+    int playerIndex = player - 1;
+    int waveIndex = NG_GetSlowesUnitWaveIndex(waveNum);
+    int waveSize;
+
+    waveSize = UnitGroupCount(waveUnits, c_unitCountAlive);
+
+    if (waveSize > 0 && (false == UnitIsValid(slowestUnit[playerIndex][waveIndex]) || false == UnitIsAlive(slowestUnit[playerIndex][waveIndex]))) {
+        NG_debugWave("Searching new Slowest Unit");
+        slowestUnit[playerIndex][waveIndex] = NG_GetSlowestUnit(player, waveUnits);
+        if(UnitIsValid(slowestUnit[playerIndex][waveIndex]) == false){
+            return; // There are no Units left to move :(
+        }
+    }
+
+    // Slowest Unit should have an Attack move, all others have slowest Unit as Target
+    UnitGroupRemove(waveUnits, slowestUnit[playerIndex][waveIndex]);
+    OrderSetTargetPoint(attackMove, targetPoint);
+    UnitIssueOrder(slowestUnit[playerIndex][waveIndex], attackMove, c_orderQueueReplace);
+
+    slowestUnitPosition = UnitGetPosition(slowestUnit[playerIndex][waveIndex]);
+
+    // Rest of Group follows slowestUnit
+    NG_moveOutOfRangeUnitsToPoint(NG_AttackMoveToPoint, player, waveUnits, slowestUnitPosition, c_NG_maxDistanceToSlowestUnit);
+}
+
+void NG_setTargetPoint(int player, int waveNum, point p) {
+    g_NG_Waves[player - 1][waveNum].targetPoint = p;
+}
+
+void NG_addUnitToWave(int player, unit u, int waveNum) {
+    order ord;
+    ord = AICreateOrder(player, c_AB_Move, 0);
+
+    OrderSetTargetPoint(ord, UnitGetPosition(u));
+
+    if (!putInWaves) {
+        return;
+    }
+
+    UnitIssueOrder(u, ord, c_orderQueueAddToFront);
+    UnitGroupAdd(g_NG_Waves[player - 1][waveNum].waveGroup, u);
+}
+
+void NG_prepareDefenses(int player) {
+    int nrUnitsWW = UnitGroupCount(g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, c_unitCountAll);
+    if (nrUnitsWW > 0) {
+        NG_addGroupToWave(player, g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, c_NG_DefendWave);
+        g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup = UnitGroupEmpty();
+    }
+}
+
+void NG_TintWaves(int player) {
+    unit u;
+    int i = 0;
+    for (i = 1; i <= UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll); i = i + 1) {
+        u = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, i);
+        UnitSetTeamColorIndex(u, 6);
+    }
+    i = 0;
+    for (i = 1; i <= UnitGroupCount(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, c_unitCountAll); i = i + 1) {
+        u = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, i);
+        UnitSetTeamColorIndex(u, 14);
+    }
+    i = 0;
+    for (i = 1; i <= UnitGroupCount(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_unitCountAll); i = i + 1) {
+        u = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, i);
+        UnitSetTeamColorIndex(u, 9);
+    }
+    i = 0;
+    for (i = 1; i <= UnitGroupCount(g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, c_unitCountAll); i = i + 1) {
+        u = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, i);
+        UnitSetTeamColorIndex(u, 8);
+    }
+}
+
+void NG_mergeAllToAW(int player) {
+    int nrUnitsRW = UnitGroupCount(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, c_unitCountAll);
+    int nrUnitsDW = UnitGroupCount(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_unitCountAll);
+    int nrUnitsWW = UnitGroupCount(g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, c_unitCountAll);
+
+    if (nrUnitsRW > 0) {
+        NG_addGroupToWave(player, g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, c_NG_AttackWave);
+        g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup = UnitGroupEmpty();
+    }
+    if (nrUnitsDW > 0) {
+        NG_addGroupToWave(player, g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_NG_AttackWave);
+        g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup = UnitGroupEmpty();
+    }
+    if (nrUnitsWW > 0) {
+        NG_addGroupToWave(player, g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, c_NG_AttackWave);
+        g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup = UnitGroupEmpty();
+    }
+
+    //DebugAI("Merged all waves to AW. ALLIN");
+}
+
+void NG_addGroupToWave(int player, unitgroup ug, int waveNum) {
+    UnitGroupAddUnitGroup(g_NG_Waves[player - 1][waveNum].waveGroup, ug);
+
+}
+
+void NG_WMattackAllin(int player, point tp) {
+    NG_WMattack(player, tp, true);
+    NG_reinfAttack(player, tp, true);
+    NG_defendAttack(player, tp, true, true);
+    allinMode = true;
+    //DebugAI("Issued ALLIN");
+}
+
+void NG_WMattackAllinAfterMerge(int player, point tp) {
+    NG_mergeAllToAW(player);
+    NG_WMattack(player, tp, true);
+}
+
+void NG_WMattack(int player, point tp, bool reunite) {
+    unit currentUnit;
+    int i;
+    unit closestU;
+    //fixed d;
+
+    g_NG_Waves[player - 1][c_NG_AttackWave].targetPoint = tp;
+
+    //attackMove = AICreateOrder(player, c_AB_Attack, 0);
+    OrderSetTargetPoint(attackMove, g_NG_Waves[player - 1][c_NG_AttackWave].targetPoint);
+
+    //get closest unit to target point in ug
+
+    if (UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll) > 0) {
+        closestU = libNtve_gf_ClosestUnitToPoint(tp, g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup);
+    }
+
+    if (reunite && (closestU != null && DistanceBetweenPoints(UnitGetPosition(closestU), libNtve_gf_CenterOfUnitGroup(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup)) > maxD + (tollerancePerUnit * UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll)) || isBlocking)) {
+        //DebugAI("AW reunion");
+        isBlocking = true;
+        OrderSetTargetPoint(attackMove, libNtve_gf_CenterOfUnitGroup(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup));
+        if (issueOrder) {
+            UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, attackMove, c_orderQueueReplace);
+        } else {
+            NG_UnitGroupCast(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, attackMove, c_noMarker, c_castHold);
+        }
+
+        if (DistanceBetweenPoints(UnitGetPosition(closestU), libNtve_gf_CenterOfUnitGroup(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup)) <= (maxD / 2) + (tollerancePerUnit * UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll))) {
+            isBlocking = false;
+            //DebugAI("   -> isBlocking = false");
+        }
+        //Concatenate this the next attack move
+        //UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, attackMove, c_orderQueueAddToEnd);
+    } else {
+        //NG_debugCombat("AW attacking...");
+        if (issueOrder) {
+            UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, attackMove, c_orderQueueReplace);
+        } else {
+            NG_UnitGroupCast(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, attackMove, c_noMarker, c_castHold);
+        }
+    }
+    //for (i = 1; i <= UnitGroupCount(g_NG_Waves[player-1][c_NG_AttackWave].waveGroup, c_unitCountAll); i = i + 1) {
+    //    currentUnit = UnitGroupUnit(g_NG_Waves[player-1][c_NG_AttackWave].waveGroup, i);
+
+    //  UnitIssueOrder(currentUnit, attackMove, c_orderQueueReplace);
+    //}
+}
+
+void NG_reinfAttack(int player, point tp, bool mergeWithAW) {
+    int playerIndex = player - 1;
+    unitgroup reinfUnits = g_NG_Waves[playerIndex][c_NG_ReinfWave].waveGroup;
+    unitgroup attackUnits = g_NG_Waves[playerIndex][c_NG_AttackWave].waveGroup;
+    int reinfCount = UnitGroupCount(reinfUnits, c_unitCountAlive);
+    int attackCount = UnitGroupCount(attackUnits, c_unitCountAlive);
+    point centerOfReinf;
+    point centerOfAttack;
+
+    if (reinfCount < 10 && allinMode == false) {
+        // Rally at Rally Point
+        NG_moveOutOfRangeUnitsToPoint(NG_AttackMoveToPoint, player, reinfUnits, NG_getRallyPoint(player), 5.0);
+    } else {
+        // Walk to Attack Point in Group
+        allinMode = true;
+        NG_AttackWithWave(player, NG_BestAttackPoint(player), c_NG_ReinfWave);
+        if (mergeWithAW) {
+            if (attackCount > 0) {
+                // Check if ReinforcementWave is near Attack Wave
+                centerOfReinf = UnitGroupCenterOfGroup(reinfUnits);
+                centerOfAttack = UnitGroupCenterOfGroup(attackUnits);
+
+                if (DistanceBetweenPoints(centerOfAttack, centerOfReinf) < 20) {
+                    NG_mergeWaves(player, c_NG_ReinfWave, c_NG_AttackWave);
+                    allinMode = false;
+                }
+            } else {
+                // Attack Wave got Vaporized -> ReinforcementWave is now AttackWave
+                NG_mergeWaves(player, c_NG_ReinfWave, c_NG_AttackWave);
+            }
+        }
+    }
+
+}
+
+void NG_defendAttack(int player, point tp, bool mergeWithAW, bool reunite) {
+    int i;
+    unit closestU;
+    //fixed d;
+
+    g_NG_Waves[player - 1][c_NG_DefendWave].targetPoint = tp;
+
+    //attackMove = AICreateOrder(player, c_AB_Attack, 0);
+    OrderSetTargetPoint(attackMove, g_NG_Waves[player - 1][c_NG_DefendWave].targetPoint);
+
+    //get closest unit to target point in ug
+    if (UnitGroupCount(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_unitCountAll) > 0) {
+        closestU = libNtve_gf_ClosestUnitToPoint(tp, g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup);
+    }
+    if (closestU != null && DistanceBetweenPoints(UnitGetPosition(closestU), libNtve_gf_CenterOfUnitGroup(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup)) > maxD && reunite) {
+        //DebugAI("DW reunion");
+        OrderSetTargetPoint(attackMove, libNtve_gf_CenterOfUnitGroup(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup));
+        if (issueOrder) {
+            UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, attackMove, c_orderQueueReplace);
+        } else {
+            NG_UnitGroupCast(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, attackMove, c_noMarker, c_castHold);
+        }
+        //Concatenate this the next attack move
+        //UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, attackMove, c_orderQueueAddToEnd);
+    } else {
+        //NG_debugCombat("DW attacking...");
+        if (issueOrder) {
+            UnitGroupIssueOrder(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, attackMove, c_orderQueueReplace);
+        } else {
+            NG_UnitGroupCast(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, attackMove, c_noMarker, c_castHold);
+        }
+    }
+}
+
+void NG_mergeWaves(int player, int sourceWaveNum, int targetWaveNum) {
+    int nrUnits;
+
+    nrUnits = UnitGroupCount(g_NG_Waves[player - 1][sourceWaveNum].waveGroup, c_unitCountAll);
+    if (nrUnits > 0) {
+        NG_addGroupToWave(player, g_NG_Waves[player - 1][sourceWaveNum].waveGroup, targetWaveNum);
+        //Clear wave
+        g_NG_Waves[player - 1][sourceWaveNum].waveGroup = UnitGroupEmpty();
+        //DebugAI("Merged Waves");
+    }
+}
+
+void NG_moveWave(int player, point tp, int waveNum) {
+    unit currentUnit;
+    int i;
+
+    g_NG_Waves[player - 1][waveNum].targetPoint = tp;
+
+    //move = AICreateOrder(player, c_AB_Move, 0);
+    OrderSetTargetPoint(move, g_NG_Waves[player - 1][waveNum].targetPoint);
+    if (issueOrder) {
+        UnitGroupIssueOrder(g_NG_Waves[player - 1][waveNum].waveGroup, move, c_orderQueueReplace);
+    } else {
+        NG_UnitGroupCast(g_NG_Waves[player - 1][waveNum].waveGroup, move, c_noMarker, c_castHold);
+    }
+}
+
+void NG_RemoveUnitFromWave(int player, unit u, int waveNum) {
+    UnitGroupRemove(g_NG_Waves[player - 1][waveNum].waveGroup, u);
+}
+
+void NG_mergeReinforceInAttack(int player) {
+    unitgroup attack = g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup;
+    point attackCenter = libNtve_gf_CenterOfUnitGroup(attack);
+    unitgroup reinforce = g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup;
+    point reinfCenter = libNtve_gf_CenterOfUnitGroup(reinforce);
+    int i = 1;
+    unit currentUnit;
+
+    if (UnitGroupCount(reinforce, c_unitCountAll) == 0) {
+        return;
+    }
+
+    if (UnitGroupCount(attack, c_unitCountAll) == 0) {
+        NG_mergeWaves(player, c_NG_ReinfWave, c_NG_AttackWave);
+        NG_LostAWShittalk(player);
+        NG_SetPlayerHappy(player,false);    //Shits about to get serious.
+    } else if (DistanceBetweenPoints(attackCenter, reinfCenter) < maxD) {
+        NG_mergeWaves(player, c_NG_ReinfWave, c_NG_AttackWave);
+    } else {
+        // if single unit of reinforce wave is near the attack wave, merge into it
+        // we need this ref on c_NG_ReinfWave instead of local copy "unitgroup reinforce"
+        while (i < UnitGroupCount(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, c_unitCountAll)) {
+            currentUnit = UnitGroupUnit(reinforce, i);
+            if (DistanceBetweenPoints(attackCenter, UnitGetPosition(currentUnit)) < maxD) {
+                NG_addUnitToWave(player, currentUnit, c_NG_AttackWave);
+                NG_RemoveUnitFromWave(player, currentUnit, c_NG_ReinfWave);
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+}
+
+void NG_distributeUnits(int player) {
+    int i;
+    int awRatioI;
+    int dwRatioI;
+    fixed awRatioF;
+    unit currentUnit;
+    int nrUnits;
+    point centerOfUg;
+
+    if (WMLastCallEstimate[player - 1] + WMEstimatedPeriod < (GameGetMissionTime())) {
+
+        WMLastCallEstimate[player - 1] += WMEstimatedPeriod;
+
+        nrUnits = UnitGroupCount(g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, c_unitCountAll);
+        if (nrUnits > 0) {
+            awRatioF = 0.7 * IntToFixed(nrUnits);
+            awRatioI = FixedToInt(awRatioF);
+
+            if ((awRatioF - awRatioI) >= 0.5) {
+                awRatioI = awRatioI + 1;
+            }
+            dwRatioI = nrUnits - awRatioI;
+        }
+    }
+
+    if (awRatioI > 0) {
+        for (i = 1; i <= awRatioI; i = i + 1) {
+            currentUnit = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, 1);
+            //If unit is too far away from the attac wave, add to reinforcement
+            centerOfUg = libNtve_gf_CenterOfUnitGroup(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup);
+
+            //If attack wave is empty add to attack wave
+            if (currentUnit != null && centerOfUg == null) {
+                NG_addUnitToWave(player, currentUnit, c_NG_AttackWave);
+                NG_RemoveUnitFromWave(player, currentUnit, c_NG_WaitWave);
+
+            }
+            //Add to AW, if it is not too far away from it
+            else if (currentUnit != null && DistanceBetweenPoints(UnitGetPosition(currentUnit), centerOfUg) <= dThresh) {
+                NG_addUnitToWave(player, currentUnit, c_NG_AttackWave);
+                NG_RemoveUnitFromWave(player, currentUnit, c_NG_WaitWave);
+                //DebugAI("Added to AW with measurement");
+            }
+            //If Unit is too far away from AW, add to Reinforcement wave, but only if not in allin mode
+            else {
+                NG_addUnitToWave(player, currentUnit, c_NG_ReinfWave);
+                NG_RemoveUnitFromWave(player, currentUnit, c_NG_WaitWave);
+                //DebugAI("Added to RW");
+            }
+            //If nothing helps, we keep it in our wait wave, until allinMode is false again
+        }
+    }
+
+    // DefendWave and AttackWave are now One
+    for (i = 1; i <= dwRatioI; i = i + 1) {
+        currentUnit = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_WaitWave].waveGroup, 1);
+        NG_addUnitToWave(player, currentUnit, c_NG_AttackWave);
+        NG_RemoveUnitFromWave(player, currentUnit, c_NG_WaitWave);
+    }
+
+    //Look if number of units in DW is higher than in AW and also if AW is empty because it was destroyed.
+    if (UnitGroupCount(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_unitCountAll) > UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll) && UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll) == 0) {
+
+        nrUnits = UnitGroupCount(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, c_unitCountAll);
+        if (nrUnits > 0) {
+            awRatioF = 0.7 * IntToFixed(nrUnits);
+            awRatioI = FixedToInt(awRatioF);
+
+            if ((awRatioF - awRatioI) >= 0.5) {
+                awRatioI = awRatioI + 1;
+            }
+        }
+
+        if (awRatioI > 0) {
+            for (i = 1; i < awRatioI; i = i + 1) {
+                currentUnit = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_DefendWave].waveGroup, 1);
+                NG_addUnitToWave(player, currentUnit, c_NG_AttackWave);
+                NG_RemoveUnitFromWave(player, currentUnit, c_NG_DefendWave);
+            }
+        }
+        //DebugAI("Executed swap between DW and AW");
+    }
+    awRatioF = 0.0;
+    awRatioI = 0;
+    //Do same with RW
+    if (UnitGroupCount(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, c_unitCountAll) > UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll) && UnitGroupCount(g_NG_Waves[player - 1][c_NG_AttackWave].waveGroup, c_unitCountAll) == 0) {
+
+        nrUnits = UnitGroupCount(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, c_unitCountAll);
+        if (nrUnits > 0) {
+            awRatioF = 0.7 * IntToFixed(nrUnits);
+            awRatioI = FixedToInt(awRatioF);
+
+            if ((awRatioF - awRatioI) >= 0.5) {
+                awRatioI = awRatioI + 1;
+            }
+        }
+
+        if (awRatioI > 0) {
+            for (i = 1; i < awRatioI; i = i + 1) {
+                currentUnit = UnitGroupUnit(g_NG_Waves[player - 1][c_NG_ReinfWave].waveGroup, i);
+                NG_addUnitToWave(player, currentUnit, c_NG_AttackWave);
+                NG_RemoveUnitFromWave(player, currentUnit, c_NG_ReinfWave);
+            }
+        }
+    }
+}
+
+point NG_getTargetpointOfWave(int player, int wavenum) {
+    return g_NG_Waves[player - 1][wavenum].targetPoint;
+}
+
+void NG_UnitGroupCast(unitgroup group, order ord, marker mark, bool retreat) {
+    int i;
+    unit currentUnit;
+
+    for (i = 1; i <= UnitGroupCount(group, c_unitCountAll); i = i + 1) {
+        currentUnit = UnitGroupUnit(group, i);
+        AICast(currentUnit, ord, mark, retreat);
+    }
+}

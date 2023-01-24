@@ -1,0 +1,177 @@
+void NG_InitCCFirst(int player) {
+    NG_InitBuildOrder(player);
+    // Add Build Order Positions here
+    // player, amount, Building or Unit, blocking <Next Position has to wait for this to finish?>
+    NG_AddToBO_Simple(player, 2, c_TU_SCV, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SendScout, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 3, c_TU_SCV, false);
+    NG_AddToBO_Simple(player, 80, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 3, c_TB_Barracks, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 1, c_TB_OrbitalCommand, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 3, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 1, c_TB_CommandCenter, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Starport, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_AntiZerg(int player) {
+    NG_debugInfo("i will FEAST on zergses!");
+    NG_InitBuildOrder(player);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Refinery, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Barracks, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Reaper, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Reaper, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Starport, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Reaper, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TB_StarportTechLab, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Liberator, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TB_FactoryReactor, false);
+    NG_AddToBO_Simple(player, 1, c_TB_BarracksReactor, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Liberator, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Liberator, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, c_TB_EngineeringBay, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 2, c_TU_WidowMine, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Marine, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Liberator, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Marine, false);
+
+}
+
+void NG_MechOpener(int player) {
+    NG_debugInfo("what does this Button do?");
+    NG_InitBuildOrder(player);
+    NG_AddToBO_Simple(player, 1, NG_BO_SendScout, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Barracks, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, true);
+    NG_AddToBO_Simple(player, 1, c_TU_Reaper, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, true);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, c_TB_BarracksReactor, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+//    NG_AddToBO_Simple(player, 1, NG_BarracksFactorySwitch, true);
+    NG_SwitchBarracksFactory(player);
+    NG_AddToBO_Simple(player, 1, c_TB_Starport, false);
+    NG_AddToBO_Simple(player, 2, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TB_BarracksTechLab, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, true);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+//    NG_AddToBO_Simple(player, 1, NG_BarracksStarportSwitch, false);
+    NG_SwitchBarracksStarport(player);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Banshee, false);
+    NG_AddToBO_Simple(player, 1, c_TR_BansheeCloak, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Banshee, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, c_TB_BarracksReactor, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+//    NG_AddToBO_Simple(player, 1, NG_FactoryStarportSwitch, false);
+    NG_SwitchFactoryStarport(player);
+//    NG_AddToBO_Simple(player, 1, NG_BarracksStarportSwitch, false);
+    NG_SwitchBarracksStarport(player);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Hellion, false);
+    NG_AddToBO_Simple(player, 100, NG_SetAllinChance, false);
+    NG_AddToBO_Simple(player, 1, c_TR_HellionDamage, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Viking, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Viking, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_FastBanshee(int player) {
+    NG_debugInfo("me so fast");
+    NG_InitBuildOrder(player);
+    NG_AddToBO_Simple(player, 1, NG_BO_SendScout, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Barracks, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, true);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Starport, false);
+    NG_AddToBO_Simple(player, 1, c_TB_FactoryTechLab, false);
+    NG_AddToBO_Simple(player, 1, NG_Expand, true);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, false);
+//    NG_AddToBO_Simple(player, 1, NG_FactoryStarportSwitch, false);
+    NG_SwitchFactoryStarport(player);
+    NG_AddToBO_Simple(player, 1, c_TU_Banshee, false);
+    NG_AddToBO_Simple(player, 1, c_TR_BansheeCloak, false);
+    NG_AddToBO_Simple(player, 1, c_TB_FactoryTechLab, false);
+    NG_AddToBO_Simple(player, 1, c_TU_Raven, false);
+    NG_AddToBO_Simple(player, 500, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 1, NG_SetFin, false);
+}
+
+void NG_ReaperAggro(int player) {
+    NG_InitBuildOrder(player);
+
+    NG_AddToBO_Simple(player, 2, c_TU_SCV, false);
+    NG_AddToBO_Simple(player, 1, c_TB_SupplyDepot, true);
+    NG_AddToBO_Simple(player, 1, c_TU_SCV, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Barracks, true);
+    NG_AddToBO_Simple(player, 1, c_TU_Reaper, true);
+    NG_AddToBO_Simple(player, 9001, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 1, NG_Gas, false);
+    NG_AddToBO_Simple(player, 1, c_TB_BarracksReactor, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Factory, false);
+    NG_AddToBO_Simple(player, 1, c_TB_Barracks, false);
+//    NG_AddToBO_Simple(player, 1, NG_BarracksFactorySwitch, true);
+    NG_SwitchBarracksFactory(player);
+    NG_AddToBO_Simple(player, 2, c_TU_Hellion, false);
+
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}

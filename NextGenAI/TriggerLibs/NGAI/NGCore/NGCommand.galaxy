@@ -1,0 +1,554 @@
+//==================================================================================================
+// Galaxy fuer Kommandofunktionen
+//==================================================================================================
+
+// fill in your own debug enable/disable commands here
+//  example command: "-d 1 info"        // enables info debuging
+void NG_parseDebug(bool on, string param) {
+    int flag;
+    string status;
+
+    if (on) {
+        status = "enabled messages: ";
+    } else {
+        status = "disabled messages: ";
+    }
+
+    if (param == "i" || param == "info") {
+        flag = c_NGD_INFO;
+        NG_debugInfo(status + "Info");
+    } else if (param == "w" || param == "warning") {
+        flag = c_NGD_WARNING;
+        NG_debugInfo(status + "Warning");
+    } else if (param == "e" || param == "error") {
+        flag = c_NGD_ERROR;
+        NG_debugInfo(status + "Error");
+    } else if (param == "init") {
+        flag = c_NGD_INIT;
+        NG_debugInfo(status + "Init");
+    } else if (param == "bm") {
+        flag = c_NGD_BUILD_MANGER;
+        NG_debugInfo(status + "Build Manager");
+    } else if (param == "spy") {
+        flag = c_NGD_SPY;
+        NG_debugInfo(status + "Spy Manager");
+    } else if (param == "com") {
+        flag = c_NGD_COMMANDER;
+        NG_debugInfo(status + "Commander");
+    } else if (param == "state") {
+        flag = c_NGD_STATE_MANAGER;
+        NG_debugInfo(status + "State Manager");
+    } else if (param == "cm") {
+        flag = c_NGD_COMBAT_MANAGER;
+        NG_debugInfo(status + "Combat Manager");
+    } else if (param == "wave") {
+        flag = c_NGD_WAVE;
+        NG_debugInfo(status + "Wave Control");
+    } else {
+        flag = StringToInt(param);
+        NG_debugInfo(status + "flag \"" + param + "\"");
+    }
+
+    NG_debugSetFlag(flag, on);
+}
+
+// Respondfunktion fuer die Kommandoeingabe ueber das Chatfenster
+bool NG_respond(bool checkConds, bool doActions) {
+
+    int buildid;
+    int tmp;
+    string unitcount;
+    string command;
+    string racebuild;
+    string raceworker;
+    string unitname;
+    unit singelworker;
+    order bewegen;
+    order bauen;
+    int playerid;
+    int i;
+    int Stalkercount = 9;
+    color pcolor;
+    int cs;
+    point camPos;
+
+    unitgroup grp1;
+    unitgroup grp2;
+
+    if (!doActions) {
+        return false;
+    }
+
+    // Zerlegt den command String in vier Strings fuer die Befehlssteuerung
+    command = StringWord(EventChatMessage(false), 1);
+    playerid = StringToInt(StringWord(EventChatMessage(false), 2));
+    unitname = StringWord(EventChatMessage(false), 3);
+    unitcount = StringWord(EventChatMessage(false), 4);
+
+    // enable and disable debug
+    if (command == "-d") {
+        NG_parseDebug(playerid > 0, unitname);
+        return true;
+    }
+
+    // "-commanders" will print out all commander
+    // "-commanders 1" will print out all commander for race of player 1
+    if (command == "-commanders") {
+        if (playerid == 0) {
+            NG_listCommander(c_RaceStringZerg);
+            NG_listCommander(c_RaceStringProtoss);
+            NG_listCommander(c_RaceStringTerran);
+        } else {
+            NG_listCommander(PlayerRace(playerid));
+        }
+    }
+
+    if (command == "-fight") {
+        //Ping for identification
+        PingDestroyAll();
+        pcolor = libNtve_gf_ConvertPlayerColorToColor(PlayerGetColorIndex(1, false));
+        if (playerid > 9) {
+            PingCreate(PlayerGroupAll(), "PingNumeric" + IntToString((playerid - playerid % 10) / 10), Point(50.0, 75.0), pcolor, 150.0);
+            PingCreate(PlayerGroupAll(), "PingNumeric" + IntToString(playerid % 10), Point(65.0, 75.0), pcolor, 150.0);
+        } else {
+            PingCreate(PlayerGroupAll(), "PingNumeric" + IntToString(playerid), Point(50.0, 75.0), pcolor, 150.0);
+        }
+        pcolor = libNtve_gf_ConvertPlayerColorToColor(PlayerGetColorIndex(2, false));
+        if (StringToInt(unitname) > 9) {
+            PingCreate(PlayerGroupAll(), "PingNumeric1", Point(160.0, 75.0), pcolor, 150.0);
+            PingCreate(PlayerGroupAll(), "PingNumeric" + IntToString(StringToInt(unitname) % 10), Point(175.0, 75.0), pcolor, 150.0);
+        } else {
+            PingCreate(PlayerGroupAll(), "PingNumeric" + unitname, Point(160.0, 75.0), pcolor, 150.0);
+        }
+        //init indices for AI selection
+        NG_setAIIndex(1, playerid);
+        NG_setAIIndex(2, StringToInt(unitname));
+        camPos = CameraGetTarget(3);
+        for (i = -3; i < Stalkercount - 3; i += 1) {
+            UnitCreate(1, c_PU_Stalker, c_unitCreateIgnorePlacement, 1, Point(PointGetX(camPos) - 3, PointGetY(camPos) + i), 0.0);
+            UnitCreate(1, c_PU_Stalker, c_unitCreateIgnorePlacement, 2, Point(PointGetX(camPos) + 3, PointGetY(camPos) + i), 0.0);
+        }
+
+    }
+    if (command == "-fightStart") {
+        for (i = 1; i <= 1; i += 1) {
+            grp1 = UnitGroup(c_PU_Stalker, 1, RegionCircle(Point(100.0, 75.0), 20), null, c_noMaxCount);
+            grp2 = UnitGroup(c_PU_Stalker, 2, RegionCircle(Point(140.0, 75.0), 20), null, c_noMaxCount);
+            //Attack move
+            for (tmp = 1; tmp <= UnitGroupCount(grp1, c_unitCountAll); tmp += 1) {
+                if (UnitGetType(UnitGroupUnit(grp1, tmp)) != "Stalker") {
+                    DebugAI("Odd Unit in UG1: " + UnitGetType(UnitGroupUnit(grp1, tmp)));
+                }
+                bewegen = AICreateOrder(UnitGetOwner(UnitGroupUnit(grp1, tmp)), c_AB_Attack, 0);
+                OrderSetTargetPoint(bewegen, Point(140.0, 75.0));
+                AICast(UnitGroupUnit(grp1, tmp), bewegen, c_noMarker, false);
+            }
+            for (tmp = 1; tmp <= UnitGroupCount(grp2, c_unitCountAll); tmp += 1) {
+                if (UnitGetType(UnitGroupUnit(grp2, tmp)) != "Stalker") {
+                    DebugAI("Odd Unit in UG2: " + UnitGetType(UnitGroupUnit(grp1, tmp)));
+                }
+                bewegen = AICreateOrder(UnitGetOwner(UnitGroupUnit(grp2, tmp)), c_AB_Attack, 0);
+                OrderSetTargetPoint(bewegen, Point(100.0, 75.0));
+                AICast(UnitGroupUnit(grp2, tmp), bewegen, c_noMarker, false);
+            }
+        }
+    }
+    if (command == "-fightClear") {
+        grp1 = UnitGroup(null, c_playerAny, RegionCircle(RegionGetCenter(RegionEntireMap()), 50), null, c_noMaxCount);
+        UnitGroupLoopBegin(grp1);
+        while (!UnitGroupLoopDone()) {
+            UnitKill(UnitGroupLoopCurrent());
+            UnitGroupLoopStep();
+        }
+        UnitGroupLoopEnd();
+    }
+
+    // Stellt die Rasse des Spielers fest und legt die Bau-,Gebauede- und Arbeitervariablen fest
+    if (PlayerRace(playerid) == c_RaceStringZerg) {
+        racebuild = c_AB_BuildZerg;
+        buildid = NG_getBuildingId(c_ZB_SpawningPool);
+        raceworker = c_ZU_Drone;
+    } else if (PlayerRace(playerid) == c_RaceStringTerran) {
+        racebuild = c_AB_BuildTerran;
+        buildid = NG_getBuildingId(c_TB_SupplyDepot);
+        raceworker = c_TU_SCV;
+    } else if (PlayerRace(playerid) == c_RaceStringProtoss) {
+        racebuild = c_AB_BuildProtoss;
+        buildid = NG_getBuildingId(c_PB_Pylon);
+        raceworker = c_PU_Probe;
+    } else {
+        return false;
+    }
+
+    if (command == "-NGBuild") {
+        NG_MH_AddHighPrioUnit(playerid, unitname, StringToInt(unitcount));
+    }
+    if (command == "-autosupply") {
+        NG_MH_ToogleAutoSupply(playerid);
+    }
+    if (command == "-autoexpand") {
+        NG_MH_ToogleAutoExpand(playerid);
+    }
+    if (command == "-autoworkers") {
+        NG_MH_ToogleAutoWorkers(playerid);
+    }
+    if (command == "-nuke") {
+        //Schickt eine Nuklearrakete von spieler a zu b
+        NG_MH_NukeTest(playerid, StringToInt(unitname));
+    }
+
+    if (command == "-filtertest") {
+        JS_testUnitGroup(playerid);
+    }
+    if (command == "-bktest") {
+        NG_BK_Fight(playerid);
+    }
+    if (command == "-ProxyWarp") {
+        NG_warpToProxy(playerid, unitname);
+    }
+    if (command == "-ProxyPylon") {
+        NG_proxyPylon(playerid);
+    }
+// Kommando zum bauen: -build player
+    if (command == "-build") {
+        // Waehlt den ersten Arbeiter aus allen Arbeitern des Spielers
+        singelworker = UnitGroupUnit(UnitGroup(raceworker, playerid, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+        // Erstellt das Bewegungs- und Baukommando
+        bewegen = AICreateOrder(playerid, c_AB_Move, 0);
+        bauen = AICreateOrder(playerid, racebuild, buildid);
+        // Setzt den Zielpunkt fuer die Orders
+        OrderSetTargetPoint(bewegen, PointWithOffset((PlayerStartLocation(playerid)), 12.0, -3.0));
+        OrderSetTargetPoint(bauen, PointWithOffset((PlayerStartLocation(playerid)), 8.0, -3.0));
+        // Setzt die Orders in eine Liste zum Ausfuehren fuer die Einheit
+        UnitIssueOrder((singelworker), (bewegen), c_orderQueueReplace);
+        UnitIssueOrder((singelworker), (bauen), c_orderQueueAddToEnd);
+        DebugAI("Buildtest for player: " + IntToString(playerid) + " !");
+    }
+
+// test debug messages
+    if (command == "-dtest") {
+        NG_JS_testDebugMessages();
+    }
+
+// draw line of workers between two player bases
+// -drawline player1 player2
+    if (command == "-drawline") {
+        NG_JS_DrawLine(playerid, StringToInt(unitname), raceworker);
+    }
+
+    if (command == "-knows") {
+        NG_JS_getKnownUnits(playerid, StringToInt(unitname));
+    }
+
+    if (command == "-estimatedSupply") {
+        NG_AU_getEstimatedSupply(playerid, StringToInt(unitname));
+    }
+
+// Kommando zum bewegen: -move player
+    if (command == "-move") {
+        // Erstellt das Bewegungskommando
+        bewegen = AICreateOrder(playerid, c_AB_Move, 0);
+        // Setzt den Zielpunkt fuer das Kommando
+        OrderSetTargetPoint(bewegen, RegionGetCenter(RegionEntireMap()));
+        // Setzt die Order in eine Liste zum Ausfuehren fuer die Einheit
+        UnitIssueOrder((UnitGroupUnit(UnitGroup(raceworker, playerid, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1)), (bewegen), c_orderQueueReplace);
+        DebugAI("Mova ya, player: " + IntToString(playerid) + " !");
+    }
+
+//Leeres IssueOrder auf alle Einheiten
+    if (command == "-braindead") {
+        bewegen = AICreateOrder(playerid, "stop", 0);
+        // Setzt die Order in eine Liste zum Ausfuehren fuer die Einheit
+        UnitGroupIssueOrder(UnitGroup(raceworker, playerid, (RegionEntireMap()), UnitFilter(00, 0, 0, 0), c_noMaxCount), bewegen, c_orderQueueAddToFront);
+        DebugAI("Player " + IntToString(playerid) + " workers are now braindead :(");
+    }
+
+    if (command == "-testCounter") {
+        //NG_BK_initCounter(2, 3);
+        //NG_BK_counterTest(1, 1, c_PU_Immortal);
+        //NG_BK_counterTest(1, 1, c_PU_Colossus);
+        NG_BK_counterTest(playerid, 1, unitname);
+        //NG_BK_makeGroup(1);
+    }
+    if (command == "-makeUnit") {
+        UnitCreate(StringToInt(unitcount), unitname, c_unitCreateIgnorePlacement, playerid, Point(80.0, 80.0), 0.0);
+        //NG_BK_counterTest(playerid, StringToInt(unitcount), unitname);
+    }
+
+    if (command == "-initCounter") {
+        NG_BK_initCounter(playerid, StringToInt(unitname));
+    }
+
+    if (command == "-bod") {
+        NG_DebugBuildOrder(playerid);
+    }
+
+    if (command == "-wmd") {
+        NG_TintWaves(playerid);
+    }
+
+    if (command == "-makeGroup") {
+        NG_BK_makeGroup(playerid);
+    }
+
+    if (command == "-clearCenter") {
+        NG_BK_clearCenter();
+    }
+
+    if (command == "-combatState") {
+        cs = NG_getCombatState(playerid);
+
+        if (cs == 0) {
+            DebugAI("Player " + IntToString(playerid) + " state = defend");
+        } else if (cs == 1) {
+            DebugAI("Player " + IntToString(playerid) + " state = attack");
+        } else if (cs == 2) {
+            DebugAI("Player " + IntToString(playerid) + " state = allin");
+        } else if (cs == 3) {
+            DebugAI("Player " + IntToString(playerid) + " state = rally");
+        } else {
+            DebugAI("Player " + IntToString(playerid) + " state = unknown");
+        }
+    }
+
+    if (command == "-cpd") {
+        NG_DebugCombatPoints(playerid);
+    }
+
+    if (command == "-hpd") {
+        NG_DebugBO(playerid);
+    }
+
+// Kommando zum Einheiten erstellen: -create player unitname numberofunits
+    if (command == "-create") {
+        // Erstellt eine beliebige Anzahl von Einheiten am vorgegebenen Punkt
+        UnitCreate(StringToInt(unitcount), unitname, c_unitCreateIgnorePlacement, playerid, Point(80.0, 80.0), 0.0);
+        DebugAI("Player " + IntToString(playerid) + " gets " + unitcount + " new shiny " + unitname + "s !");
+    }
+
+    if (command == "-fc") {
+        //force commander
+        gv_NG_forcedCommander[playerid - 1] = true;
+        gv_NG_commanderIndex[playerid - 1] = StringToInt(unitname);
+    }
+
+// Kommando zum Ressourcen erstellen: -money player
+    if (command == "-gold") {
+        // Gibt dem Spieler 10000 Mineralien und Gas
+        PlayerModifyPropertyInt(playerid, c_playerPropMinerals, c_playerPropOperAdd, 10000);
+        PlayerModifyPropertyInt(playerid, c_playerPropVespene, c_playerPropOperAdd, 10000);
+        DebugAI("New shiny resources for " + IntToString(playerid) + " !");
+    }
+//TODO
+    if (command == "-psi") {
+        ng_tk_CreatePsi(playerid, unitname, unitcount);
+    }
+
+    if (command == "-stoned") {
+        stonedGameSpeed(unitname);
+    }
+
+    if (command == "-spy") {
+        NG_spyStartScouting(playerid);
+    }
+
+    if (command == "-thugstools") {
+        NGRemkoTest(playerid, unitname);
+    }
+
+    if (command == "-init") {
+        // Config for Commander Index !
+        // params are <playerid> <commanderID>
+
+        if (AIGetTime() > 10) {
+            DebugAI("Cant use init after 10sec");
+            return true;
+        }
+
+        if (AIPlayerDifficulty(playerid) != c_skirVeryEasy) {
+            DebugAI("Cant set specific Commander for BlizzAI");
+            return true;
+        }
+
+        // reading CommanderIndex
+
+        tmp = StringToInt(StringWord(EventChatMessage(false), 3));
+        DebugAI("Set Commander: " + IntToString(tmp) + " for player: " + IntToString(playerid));
+        NG_setCommanderForNGAI(playerid, tmp);
+    }
+
+//Kommando um aktuelle Kameraposition auszugeben
+    if (command == "-camPos") {
+        NG_MS_GetCameraPosition(playerid);
+    }
+
+    if (command == "-hasCloakedAttackers") {
+        if (NG_spyEnemyHasCloakedUnits(playerid)) {
+            DebugAI("Player's enemy has cloaked units.");
+        } else {
+            DebugAI("Player's enemy has no cloaked units");
+        }
+    }
+
+    if (command == "-dhelp") {
+        DebugAI("info");
+        DebugAI("warning");
+        DebugAI("error");
+        DebugAI("init");
+        DebugAI("bm");
+        DebugAI("spy");
+        DebugAI("com");
+        DebugAI("state");
+        DebugAI("cm");
+        DebugAI("wave");
+    }
+
+//Kommando um alle Einheiten in einem bestimmten Radius um die aktuelle Kameraposition zerstoeren
+    if (command == "-clear") {
+        NG_MS_ClearUnitsAt(CameraGetTarget(1), StringToFixed(unitcount));
+    }
+
+    if (command == "-light") {
+        NG_SK_getLightUnits(playerid, StringToInt(unitname));
+    }
+
+    if (command == "-finit") {
+        // fast version of -init
+        // Config for Commander Index !
+        // params are <commanderID from player 1> <commanderID from player 2>
+        // for NGAI vs NGAI .. Human should be player 3 !
+
+        if (AIGetTime() > 20) {
+            DebugAI("Cant use init after 20sec");
+            return true;
+        }
+
+        if (AIPlayerDifficulty(1) != c_skirVeryEasy) {
+            DebugAI("Cant set specific Commander for BlizzAI or Humanplayer");
+            return true;
+        }
+        if (AIPlayerDifficulty(2) != c_skirVeryEasy) {
+            DebugAI("Cant set specific Commander for BlizzAI or Humanplayer");
+            return true;
+        }
+
+        // playerid = commanderID for player 1
+        // tmp = commanderID for player 2
+        tmp = StringToInt(StringWord(EventChatMessage(false), 3));
+
+        if (playerid > AIGetUserInt(1, c_NGUD_COMMANDER_MAX_INDEX)) {
+            DebugAI("Invalid Commander Number for player: " + IntToString(1));
+        } else {
+            AISetUserInt(1, c_NGUD_COMMANDER_INDEX, playerid);
+        }
+
+        if (tmp > AIGetUserInt(2, c_NGUD_COMMANDER_MAX_INDEX)) {
+            DebugAI("Invalid Commander Number for player: " + IntToString(2));
+        } else {
+            AISetUserInt(2, c_NGUD_COMMANDER_INDEX, tmp);
+        }
+    }
+
+    if (command == "-win") {
+        NG_Win(1);
+    }
+
+    if (command == "-aggro") {
+        NG_SetAggroLevel(playerid, StringToInt(unitname));
+
+    }
+
+//Add unit to specified unitgroup
+//unitname defines the id of the targeted enemy
+    if (command == "-AWBase") {
+        DebugAI("Wave attack command registered!");
+        //NG_addGroupToWave( playerid, AIFindUnits(playerid, null, PlayerStartLocation(playerid), 15, 0), c_NG_AttackWave );
+
+        NG_WMattack(playerid, PlayerStartLocation(StringToInt(unitname)), true);
+    }
+
+    if (command == "-AWPoint") {
+        DebugAI("Wave attack command registered!");
+        //NG_addGroupToWave(playerid, AIFindUnits(playerid, null, PlayerStartLocation(playerid), 15, 0), c_NG_AttackWave);
+        NG_WMattack(playerid, Point(80, 80), true);
+    }
+
+    if (command == "-showWaves") {
+        DebugAI("wait" + IntToString(NG_waveSize(playerid, 0)));
+        DebugAI("def" + IntToString(NG_waveSize(playerid, 1)));
+        DebugAI("atk" + IntToString(NG_waveSize(playerid, 2)));
+    }
+
+    if (command == "-reinfAttack") {
+        NG_reinfAttack(playerid, Point(80, 80), true);
+    }
+
+    if (command == "-defendAttack") {
+        NG_defendAttack(playerid, Point(80, 80), true, true);
+    }
+
+    if (command == "-issueOrder") {
+        NG_useIssueOrder(unitname);
+    }
+
+    if (command == "-expand") {
+        if (PlayerRace(playerid) == c_RaceStringZerg) {
+            AIExpand(playerid, AIGetTownLocation(playerid, c_townMain), c_ZB_Hatchery);
+            DebugAI("The Zerg Player " + IntToString(playerid) + " is trying to build Base #" + IntToString(AIKnownUnitCount(playerid, playerid, c_ZB_Hatchery_Alias) + 1));
+        } else if (PlayerRace(playerid) == c_RaceStringTerran) {
+            AIExpand(playerid, AIGetTownLocation(playerid, c_townMain), c_TB_CommandCenter);
+            DebugAI("The Terran Player " + IntToString(playerid) + " is trying to build Base #" + IntToString(AIKnownUnitCount(playerid, playerid, c_TB_CommandCenter_Alias) + 1));
+        } else if (PlayerRace(playerid) == c_RaceStringProtoss) {
+            AIExpand(playerid, AIGetTownLocation(playerid, c_townMain), c_PB_Nexus);
+            DebugAI("The Protoss Player " + IntToString(playerid) + " is trying to build Base #" + IntToString(AIKnownUnitCount(playerid, playerid, c_PB_Nexus) + 1));
+        } else {
+            DebugAI("(Expansion): Player " + IntToString(playerid) + " race undetermined");
+        }
+    }
+
+    if (command == "-disableWaves") {
+        putInWaves = !putInWaves;
+    }
+
+    if(command == "-refresh"){
+        grp1 = UnitGroup(null,playerid,RegionEntireMap(),null ,0);
+
+        UnitGroupLoopBegin(grp1);
+
+        while(!UnitGroupLoopDone()){
+            singelworker = UnitGroupLoopCurrent();
+            UnitSetPropertyInt(singelworker,c_unitPropEnergyPercent,100);
+            UnitGroupLoopStep();
+        }
+
+        UnitGroupLoopEnd();
+
+    }
+
+    if(command == "-stopXML"){
+        grp1 = UnitGroup(null,playerid,RegionEntireMap(),null ,0);
+        bewegen = AICreateOrder(playerid, c_AB_Move,0);
+
+        UnitGroupLoopBegin(grp1);
+
+        while(!UnitGroupLoopDone()){
+            singelworker = UnitGroupLoopCurrent();
+            OrderSetTargetPoint(bewegen,UnitGetPosition(singelworker));
+            UnitIssueOrder(singelworker,bewegen,c_orderQueueAddToFront);
+            UnitGroupLoopStep();
+        }
+
+        UnitGroupLoopEnd();
+
+    }
+    //if(command == "-NGTestWW"){
+    //    DebugAI("Wait wave moving ...");
+    //    NG_moveWave(playerid, Point(80,80), c_NG_WaitWave);
+    //}
+
+    if (command == "-testarmy"){
+        NG_CreateProtossTestArmy(playerid);
+    }
+
+    return true;
+}

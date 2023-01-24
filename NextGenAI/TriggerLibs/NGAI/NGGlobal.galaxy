@@ -1,0 +1,168 @@
+
+//==================================================================================================
+// Declare globals here
+// Every global should start with g_NG
+//==================================================================================================
+
+const int NG_maxUnitIndex = 18;
+
+struct armyUnit {
+    string unitName;fixed count;
+    int cost;
+};
+
+struct NG_CombatPoint {
+    point position;
+    fixed weight;
+    
+};
+
+armyUnit[5][NG_maxUnitIndex + 1] NG_enemyArmy;
+armyUnit[5][NG_maxUnitIndex + 1] NG_counterArmy;
+// 7 = NG_maxNumberOfDependencies+1
+string[5][7] NG_missingUnitDependencies;
+
+bool g_NGTriggerRunOnce = false;			// bool for Cmd Response Trigger Setup
+
+//--------------------------------------------------------------------------------------------------
+//  Dialog Globals
+//--------------------------------------------------------------------------------------------------
+
+string[16] g_NG_Dialog_colorHex;                // Hex Color Code for Players
+int[13] g_NG_UpdateDialogPlayer;                // Active Player Array c_
+
+
+//-----------------Shittalk Indices----------------------
+
+const int NG_c_st_ConquestIndex = 0;
+const int NG_c_st_LostAWIndex = 1;
+const int NG_c_st_BaseUnderAttackIndex = 2;
+const int NG_c_st_RetreatIndex = 3;
+
+//-------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+//  NG DEBUG GLOBALS
+//--------------------------------------------------------------------------------------------------
+int g_debugEnabledOutput = c_NGD_ALLWAYS_ON;
+
+int gv_mainDialogText = c_invalidDialogControlId;
+int gv_mainDialog = c_invalidDialogId;
+int gv_mainDialogTab = c_invalidDialogControlId;
+int[8] gv_NG_commanderIndex;
+bool[8] gv_NG_forcedCommander;
+
+string[c_NGUID_COUNT_RACES][c_NGUID_COUNT] c_NG_unitIndexNames;
+
+
+void NG_initUnitIndexNames() {
+	// Zerg Unit Strings    
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_QUEEN]           = c_ZU_Queen;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_ZERGLING]        = c_ZU_Zergling;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_BANELING]        = c_ZU_Baneling;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_ROACH]           = c_ZU_Roach;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_RAVAGER]         = c_ZU_Ravager;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_HYDRALISK]       = c_ZU_Hydralisk;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_LURKER]          = c_ZU_Lurker;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_INFESTOR]        = c_ZU_Infestor;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_SWARMHOST]       = c_ZU_SwarmHost;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_ULTRALISK]       = c_ZU_Ultralisk;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_OVERLORD]        = c_ZU_Overlord;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_OVERSEER]        = c_ZU_Overseer;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_MUTALISK]        = c_ZU_Mutalisk;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_CORRUPTOR]       = c_ZU_Corruptor;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_BROODLORD]       = c_ZU_BroodLord;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_VIPER]           = c_ZU_Viper; 
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZU_DRONE]           = c_ZU_Drone;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZB_SPINE_CRAWLER]   = c_ZB_SpineCrawler;
+    c_NG_unitIndexNames[c_NGUID_INDEX_ZERG][c_NGUID_ZB_SPORE_CRAWLER]   = c_ZB_SporeCrawler;
+
+	// Protos Unit Strings
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_ZEALOT]        	= c_PU_Zealot;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_STALKER]       	= c_PU_Stalker;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_SENTRY]        	= c_PU_Sentry;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_ADEPT]         	= c_PU_Adept;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_HIGHTEMPLAR]   	= c_PU_HighTemplar;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_DARKTEMPLAR]   	= c_PU_DarkTemplar;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_IMMORTAL]      	= c_PU_Immortal;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_COLOSSUS]      	= c_PU_Colossus;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_DISRUPTOR]     	= c_PU_Disruptor;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_ARCHON]        	= c_PU_Archon;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_OBSERVER]      	= c_PU_Observer;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_WARPPRISM]     	= c_PU_WarpPrism;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_PHOENIX]       	= c_PU_Phoenix;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_VOIDRAY]       	= c_PU_VoidRay;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_ORACLE]        	= c_PU_Oracle;
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_CARRIER]       	= c_PU_Carrier;  
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_TEMPEST]       	= c_PU_Tempest;  
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_MOTHERSHIP]    	= c_PU_Mothership;  
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_MOTHERSHIPCORE]   = c_PU_MothershipCore;  
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PU_PROBE]            = c_PU_Probe;    
+    c_NG_unitIndexNames[c_NGUID_INDEX_PROTOSS][c_NGUID_PB_PHOTON_CANNON]    = c_PB_PhotonCannon;    
+
+
+    // Terran Unit Strings
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_MARINE]     		 = c_TU_Marine;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_MARAUDER]   		 = c_TU_Marauder;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_REAPER]     		 = c_TU_Reaper;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_GHOST]      		 = c_TU_Ghost;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_HELLION]    		 = c_TU_Hellion;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_SIEGETANK]  		 = c_TU_SiegeTank;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_CYCLONE]    		 = c_TU_Cyclone;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_WIDOWMINE]  		 = c_TU_WidowMine;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_THOR]       		 = c_TU_Thor;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_VIKING]     		 = c_TU_Viking;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_MEDIVAC]     		 = c_TU_Medivac;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_LIBERATOR]   		 = c_TU_Liberator;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_RAVEN]       		 = c_TU_Raven;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_BANSHEE]     		 = c_TU_Banshee;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_BATTLECRUISER]  	 = c_TU_Battlecruiser;
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TU_SCV]                = c_TU_SCV;   
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TB_BUNKER]             = c_TB_Bunker;   
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TB_MISSILE_TURRET]     = c_TB_MissileTurret;   
+    c_NG_unitIndexNames[c_NGUID_INDEX_TERRAN][c_NGUID_TB_PLANETARY_FORTRESS] = c_TB_PlanetaryFortress;   
+}
+
+void NG_initGlobal() {
+	NG_initUnitIndexNames();
+}
+
+//Global for wave management
+//NG_Wave[3][3] g_NG_Waves;
+
+//--------------------------------------------------------------------------------------------------
+//  NG RESOURCE BURNER
+//--------------------------------------------------------------------------------------------------
+
+const int c_NG_maxBurnerArrayPos = 30;
+const int NG_BurnMineral = 0;
+const int NG_BurnVespene = 1;
+const int NG_BurnBoth = 2;
+
+struct NG_burnPos{
+    string unitString;
+    bool buildOnce;
+    bool alreadyIssued;
+    int burnRessource;
+    int minLevel;
+    fixed buildCount;
+    int buildingCap;
+};
+
+//--------------------------------------------------------------------------------------------------
+//  NG WAVE MANAGER
+//--------------------------------------------------------------------------------------------------
+
+struct NG_Wave {
+    point targetPoint;
+    unit targetUnit;
+    unitgroup waveGroup;
+    //void attack();
+    //void defend();
+};
+
+NG_Wave[8][8] g_NG_Waves;
+int[8] g_NG_AllinChance;
+
+bool issueOrder = true;
+bool putInWaves = true;

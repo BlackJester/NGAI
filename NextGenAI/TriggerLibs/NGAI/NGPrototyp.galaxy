@@ -1,0 +1,300 @@
+//==================================================================================================
+// Galaxy fuer die Prototypen
+//==================================================================================================
+
+void Funcref_OutOfRangeFunction(int player, unit outOfRangeUnit, point centerOfRange);
+
+// One may use typedef to reduce code bloat where the funcref is used.
+typedef funcref<Funcref_OutOfRangeFunction> OutOfRangeFunction;
+
+// NG INIT
+void NG_initGlobal();
+void NG_initBuildOrder(int player);
+
+// NG DEBUG
+void NG_debug(string message, int flag);
+void NG_debugEnable(int flag);
+void NG_debugDisable(int flag);
+void NG_debugSetFlag(int flag, bool on);
+// standard debug messages
+void NG_debugInfo(string message);
+void NG_debugWarning(string message);
+void NG_debugError(string message);
+void NG_debugInit(string message);
+// custom NG debug messages
+void NG_debugBuild(string message);             // debug for build manager
+void NG_debugSpy(string message);               // debug for spy manager
+void NG_debugCommander(string message);         // debug for commander
+void NG_debugState(string message);             // debug for stateManager
+void NG_debugCombat(string message);            // debug for combat manager
+void NG_debugWave(string message);              // debug for wave control
+
+// NG Commander
+void NG_initCommander();
+void NG_listCommander(string race);
+void NG_initCommanderForNGAI(int ngai);
+void NG_setCommanderForNGAI(int ngai, int commander);
+string NG_GetCommanderName(int player);
+
+// NG Spy
+void NG_initSpy();
+void NG_initSpyForNGAI(int player);
+void NG_spyScan(int ngai);
+bool NG_isBlizzScoutingEnabled(int player);
+unit NG_spySetSpyingUnit(int ngai, unit scout);
+void NG_spyStartScouting(int player);
+
+void stonedGameSpeed(string op);
+void ng_tk_CreatePsi(int p, string x, string y);
+void NG_MH_NukeTest(int launcherPlayer, int nukedPlayer);
+void NG_MH_Stats(int playerid);
+fixed UnitGetHealth(unit u);
+void MH_Ability_Debug();
+void MH_StalkerAI_3(int player, unit aiUnit, unitgroup scanGroup);
+void NG_DebugCombatPoints(int player);
+void NG_CreateProtossTestArmy(int player);
+
+//Test functions for the Build Manager Interface:
+void NG_MH_AddHighPrioUnit(int player, string unitString, int number);
+void NG_MH_ToogleAutoExpand(int player);
+void NG_MH_ToogleAutoWorkers(int player);
+void NG_MH_ToogleAutoSupply(int player);
+
+void NGRemkoTest(int playerid, string unitcount);
+void NG_MS_GetCameraPosition(int playerID);
+void NG_MS_ClearUnitsAt(point center, fixed radius);
+void NG_MS_ThinkTests(int player, unit aiunit, unitgroup scangroup);
+void NG_Win(int player);
+void NGArchonCarnage(int playerid, int unitCount);              // Soll eine Menge an ArchonUnits erzeugen und diese sich gegenseitig angreifen
+void NG_BK_Fight(int playerid);
+void NG_BK_counterTest(int playerid, int unitcount, string unitname);
+void NG_BK_initCounter(int playerid, int enemyid);
+void NG_BK_makeGroup(int playerid);
+void NG_BK_clearCenter();
+void NG_BK_test(int playerid, int unitcount);
+void NG_Spy(int playerid, int unitcount);
+void NG_SK_getLightUnits(int player, int enemy);
+void NG_JS_DrawLine(int playersrc, int playerdest, string raceworker);
+void NG_JS_getKnownUnits(int player, int enemy);
+void NG_JS_testDebugMessages();
+void JS_testUnitGroup(int player);
+void NG_AU_getEstimatedSupply(int player, int enemy);
+void NG_StatsDialogInitTriggers();
+
+//AI fight indices (no need, since include order)
+//void NG_setAIIndex(int player, int index);
+//int NG_getAIIndex(int player);
+
+// Build Manager Methods for you to use:
+void SetAutoSupply(int player, bool autosupply);
+void SetAutoWorkers(int player, bool autoworkers);
+void SetAutoExpand(int player, bool autoexpand);
+void NG_DebugBO(int player);
+void NG_ShuffleHPQ(int player);
+bool GetAutoSupply(int player);
+bool GetAutoWorkers(int player);
+bool GetAutoExpand(int player);
+void NG_AddHighPrioUnit(int player, int number, string unitString);
+void NG_RemoveFromBuildOrder(int player, string unitString);
+void NG_RemoveFromHighPrioBuildOrder(int player, string unitString);
+void NG_UpdateHighPrioBuildOrder(int player, string unitString, int newCount);
+void NG_DebugBuildOrder(int player);
+
+// Counter Calculation
+void NG_counterToEnemy(int playerid, unitgroup theirArmy);
+void NG_initBasicCounterTable(int player, int enemy);
+void NG_initTechCounterTable(int player, int enemy);
+int NG_getUnitCost(int playerid, string unitType, int unitCount);
+int NG_roundUp(fixed input);
+int NG_roundDown(fixed input);
+void NG_initDepArray(int playerid);
+void NG_initUnitArray(int playerid);
+int NG_getMissingUnitDependencies(int playerid, string unitname);
+void NG_optimizeCounter(int player);
+int GetBoImportance(int player);
+int NG_CountQueued(int player, string unittype);
+void NG_AI_Main(int player);
+void NG_BuildLoop(int player);
+void NG_initCounterManager(int player);
+int NG_getUnitIndex(string unitType);
+
+// NG Helper
+int NG_GetPlayerVespene(int player);
+int NG_GetPlayerMinerals(int player);
+int NG_GetUnitCount(int player, string unitString);
+unitgroup NG_GetEnemyUnits(int player, unitgroup group);
+//Burn Ressources
+void NG_EstimateBurningRate(int player);
+void NG_TryBurn(int player);
+void NG_BurnRessources(int player);
+void NG_AddBurnPosCapped(int player, string unitString, bool buildOnce, int burnRessource, int minimalLevel, fixed buildCount, int buildingCap);
+void NG_AddBurnPos(int player, string unitString, bool buildOnce, int burnRessource, int minimalLevel, fixed buildCount);
+int NG_GetBurnLevelVespene(int player);
+int NG_GetBurnLevelMinerals(int player);
+
+//Build Decider
+int NG_CalcBurnerCount(int player, int count);
+int NG_CalcBurnerCountFixed(int player, fixed count);
+int NG_CalcCounterCount(int player, int count);
+bool NG_TryBuildBurner(int player, string unitstring, int count);
+bool NG_TryBuildBurnerFixed(int player, string unitstring, fixed count);
+bool NG_TryBuildCounter(int player, string unitstring, int count);
+void NG_TryUpdateBurner(int player, string unitString, int newCount);
+void NG_TryUpdateBurnerFixed(int player, string unitString, fixed newCount);
+void NG_TryUpdateCounter(int player, string unitString, int newCount);
+
+// Combat Manager
+void NG_FindEnemy(int player);
+void NG_BaseUnderAttack_Init();
+bool NG_BaseUnderAttack_Func(bool testConds, bool runActions);
+void NG_MarkPotentialExpansions(int player);
+bool NG_UnitDied_Func(bool testConds, bool runActions);
+void NG_UnitDied_Init();
+void NG_ResearchDone_Init();
+void NG_AddAttackPoint(int player, point position, fixed weight);
+point NG_BestAttackPoint(int player);
+void NG_SetAggroLevel(int player, int aggro);
+int NG_GetAggroLevel(int player);
+int NG_GetEnemyPlayer(int player);
+void NG_CombatLoop(int player);
+void NG_initCombatManager(int player);
+int NG_getCombatState(int player);
+void NG_setCombatState(int player, int state);
+bool NG_CheckForAttack(int player);
+bool NG_CheckForRetreat(int player);
+bool NG_CheckForDefence(int player);
+int NG_updateCombatState(int player);
+point NG_GetOverlordDestination(int player);
+bool NG_PointRoughlyInRange(point p1, point p2);
+bool NG_PointRoughlyInCustomRange(point p1, point p2,fixed range);
+
+// Shittalk
+void SendPlayerMessage(int player, string message);
+void NG_DoShittalkLoop(int player);
+bool NG_CheckResponses(string message);
+void NG_AddShittalk(int player, string sentence, int index);
+void NG_ConquestShittalk(int player);
+void NG_TypeMessage(int player,string message,fixed typeTime);
+void NG_initShittalk(int player);
+void NG_AddResponse(int player, string response,string partialMatch,string fullMatch,fixed time);
+void NG_initShittalkTrigger();
+void NG_BaseUnderAttackShittalk(int player);
+void NG_LostAWShittalk(int player);
+void NG_RetreatShittalk(int player);
+bool NG_PlayerIsHappy(int player);
+void NG_SetPlayerHappy(int player,bool happy);
+
+// Build Manager Init Method
+void NG_AddToBO_Simple(int player, int amount, string unitString, bool blockNext);
+void NG_AddToBO(int player, int amount, int minerals, int vespin, int supply, bool blockNext, string unitString, int requiredAmount, string requiredUnit);
+void NG_SwitchBarracksFactory(int player);
+void NG_SwitchBarracksStarport(int player);
+void NG_SwitchFactoryStarport(int player);
+void NG_initBuildManager();
+void NG_UnitCreated_Init();
+void NG_ConstructionComplete_Init();
+void NG_MorphComplete_Init();
+void NG_initZerg();
+void NG_initProtoss();
+void NG_initTerran();
+void NG_PlayerSetSuperBurnerThreshold(int player,int m_level,int g_level);
+
+// Spy Manager Methods for you to use:
+int NG_spyGetEstimatedSupply(int ngaiPlayerID, int enemyPlayerID);
+int NG_spyGetKnownSupply(int ngaiPlayerID, int enemyPlayerID);
+int NG_spyGetUnitCount(int ngaiPlayerID, int enemyPlayerID, int unitTypeConst);
+int NG_spyGetEstimatedUnitCount(int ngaiPlayerID, int enemyPlayerID, int unitTypeConst);
+fixed NG_spyGetLightAir(int ngaiPlayerID, int enemyPlayerID);
+fixed NG_spyGetLightGround(int ngaiPlayerID, int enemyPlayerID);
+fixed NG_spyGetBioAir(int ngaiPlayerID, int enemyPlayerID);
+fixed NG_spyGetBioGround(int ngaiPlayerID, int enemyPlayerID);
+fixed NG_spyGetArmorAir(int ngaiPlayerID, int enemyPlayerID);
+fixed NG_spyGetArmorGround(int ngaiPlayerID, int enemyPlayerID);
+fixed NG_spyGetMassive(int ngaiPlayerID, int enemyPlayerID);
+
+void NG_spyEnemyArmyLoopBegin(int ngaiPlayerID, int enemyPlayerID);
+bool NG_spyArmyLoopDone();
+void NG_spyArmyLoopStep();
+void NG_spyArmyLoopEnd();
+int NG_spyArmyLoopCurrentUnitType();
+string NG_spyArmyLoopCurrentUnitString();
+int NG_spyArmyLoopCurrentUnitCount();
+int NG_spyArmyLoopCurrentEstimatedUnitCount();
+int NG_spyArmyLoopKnownSupply();
+int NG_spyArmyLoopEstimatedSupply();
+
+bool NG_spyEnemyHasCloakedUnits(int ngai);
+
+// Zerg Buildorders
+void NG_Init10PoolBaneling(int player);
+void NG_InitLingRushIntoAir(int player);
+void NG_InitMacroZerg(int player);
+void NG_InitQueentest(int player);
+void NG_InitRoachRavager(int player);
+
+// Zerg Burner
+void NG_ZergInitBurner1(int player);
+void NG_ZergInitBurnerLingAndAir(int player);
+void NG_ZergInitBurnerGroundArmy(int player);
+void NG_ZergInitBurnerRoachRavager(int player);
+
+// Protoss Buildorders
+void NG_4_Warpgates(int player);
+void NG_Deathball_HOTS(int player);
+void NG_ProxyTestBO(int player);
+void NG_EnVyAdeptAllIn(int player);
+void NG_NaNiwaSafeExpand(int player);
+void NG_DrogoMacroPhoenix(int player);
+void NG_BasicProtossBO(int player);
+
+// Protoss Burner
+void NG_ProtInitBurner1(int player);
+void NG_ProtInitBurnerMech(int player);
+void NG_EmptyProtossBurner(int player);
+void NG_ProtInitBurnerAdept(int player);
+void NG_ProtInitBurnerPhoenix(int player);
+void NG_ProtInitBasicBurner(int player);
+
+// Terran Buildorders
+void NG_InitCCFirst(int player);
+void NG_ReaperAggro(int player);
+void NG_FastBanshee(int player);
+void NG_MechOpener(int player);
+void NG_AntiZerg(int player);
+// Terran Burner
+void NG_InitCCFirstBurner(int player);
+
+//Wave management prototypes
+void NG_prepareDefenses(int player);
+void NG_TintWaves(int player);
+int NG_waveSize(int playerid, int waveNum);
+void NG_setTargetPoint(int player, int waveNum, point p);
+void NG_addGroupToWave(int player, unitgroup ug, int waveNum);
+void NG_WMattack(int player, point tp, bool reunite);
+void NG_reinfAttack(int player, point tp, bool mergeWithAW);
+void NG_defendAttack(int player, point tp, bool mergeWithAW, bool reunite);
+void NG_WMInit(int player);
+void NG_moveWave(int player, point tp, int waveNum);
+void NG_distributeUnits(int player);
+void NG_WMattackAllin(int player, point tp);
+void NG_WMattackAllinAfterMerge(int player, point tp);
+void NG_mergeWaves(int player, int sourceWaveNum, int targetWaveNum);
+void NG_mergeReinforceInAttack(int player);
+point NG_getTargetpointOfWave(int player, int wavenum);
+void NG_useIssueOrder(string useIssue);
+void NG_UnitGroupCast(unitgroup group, order ord, marker mark, bool retreat);
+void NG_rallyWavesAtRallyPoint(int player);
+void NG_SetKiting(int player, unit outOfRangeUnit, point centerOfRange);
+void NG_AttackMoveToPoint(int player, unit outOfRangeUnit, point centerOfRange);
+void NG_moveOutOfRangeUnitsToPoint(OutOfRangeFunction func, int player, unitgroup units, point rallyPoint, fixed radius);
+void NG_moveAllOutOfRangeUnitsToPoint(int player, point rallyPoint, fixed radius);
+point NG_getRallyPoint(int player);
+void NG_AttackWithWave(int player, point targetPoint, int waveNum);
+unit NG_GetSlowestGroundUnit(int player, unitgroup units);
+
+// Proxying (Protoss only)
+void NG_proxyPylon(int playerid);
+bool NG_warpToProxy(int playerid, string unitType);
+point NG_getProxyPoint(int playerid);
+void NG_setProxyPoint(int playerid, point inPoint);
+int NG_getWarpGateOffCooldownCount(int playerid);

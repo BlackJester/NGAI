@@ -1,0 +1,22 @@
+//--------------------------------------------------------------------------------------------------
+include "TriggerLibs/Tactical/NGAIThinkProt"
+include "TriggerLibs/Tactical/NGAIThinkTerr"
+include "TriggerLibs/Tactical/NGAIThinkZerg"
+
+// Decision which AIThink is needed
+void NG_AIThink(int player) {
+	if(!NG_playerIsNGAI(player)){
+		return;
+	}
+
+    if (PlayerRace(player) == c_RaceStringProtoss) {
+        NG_AIThinkProt(player);
+    }
+    if (PlayerRace(player) ==  c_RaceStringTerran) {
+        NG_AIThinkTerr(player);
+    }
+    if (PlayerRace(player) ==  c_RaceStringZerg) {
+        NG_AIThinkZerg(player);
+    }
+
+}

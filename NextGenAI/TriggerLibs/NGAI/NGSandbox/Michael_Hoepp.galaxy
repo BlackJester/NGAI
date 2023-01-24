@@ -1,0 +1,235 @@
+// Ich bin Batman
+
+void NG_MH_Test() {
+
+}
+
+struct MH_RegisteredTargets {
+    unit target;
+    fixed registeredDPS;
+};
+
+struct MH_RegisteredForces {
+    unit force;
+    int targetindex;
+};
+
+struct MH_RetreatBlockerPos {
+    unit force;
+    fixed minimumTime;
+};
+
+MH_RegisteredTargets[8][20] Micro_Targets;
+MH_RegisteredForces[8][20] Micro_Forces;
+MH_RetreatBlockerPos[8][20] RetreatblockedUnits;
+int [8] RetreatblockRingbufferIndex;
+
+void DoRetreat(int player, unit u, unit hostile) {
+    order move;
+    point posMe = UnitGetPosition(u);
+    point posHostile = UnitGetPosition(hostile);
+    point posTarget;
+    fixed distance = DistanceBetweenPoints(posMe,posHostile);
+    posTarget = Point(((PointGetX(posMe) - PointGetX(posHostile))/(distance*0.5)) + PointGetX(posMe), ((PointGetY(posMe) - PointGetY(posHostile))/(distance*0.5)) + PointGetY(posMe));
+    move = Order(AbilityCommand("move", 0));
+    OrderSetTargetPoint(move, posTarget);
+    AICast(u, move, c_noMarker, c_castHold);
+    UnitIssueOrder(u, move, c_orderQueueAddToFront);
+    DebugAI("Retreating!");
+}
+
+void TryRetreat(int player, unit u, unit hostile) {
+    int i = 0;
+    int index = RetreatblockRingbufferIndex[player - 1];
+    while (i < 20) {
+        if (u == RetreatblockedUnits[player - 1][i].force) {
+            if(GameGetMissionTime() > RetreatblockedUnits[player - 1][i].minimumTime){
+                DebugAI("I just retreated, now I will fight to the death!");
+                return;
+            }else{
+                DoRetreat(player,u,hostile);
+                return;
+            }
+        }
+        i += 1;
+    }
+    DoRetreat(player, u, hostile);
+    RetreatblockedUnits[player - 1][index].force = u;
+    RetreatblockedUnits[player - 1][index].minimumTime = GameGetMissionTime()+4.0;
+    RetreatblockRingbufferIndex[player - 1] = (index + 1) % 20;
+}
+
+void MH_RegisterForce(int player, unit attacker, unit target, fixed dps) {
+    int i = 0;
+    int forceindex = 0;
+    while (i < 20) {
+        if ((attacker == Micro_Forces[player - 1][i].force)) {
+            if (Micro_Forces[player - 1][i].targetindex >= 0) {
+                Micro_Targets[player - 1][(Micro_Forces[player - 1][i].targetindex)].registeredDPS -= dps;
+            }
+            forceindex = i;
+            break;
+        } else if ((Micro_Forces[player - 1][i].force == null)) { //oder unit ist nicht existent
+            forceindex = i;
+            break;
+        }
+        i += 1;
+    }
+    if (i == 20) {
+        return; //Kein platz mehr zum registrieren
+    }
+    i = 0;
+    while (i < 20) {
+        if (Micro_Targets[player - 1][i].registeredDPS + dps > UnitGetHealth(Micro_Targets[player - 1][i].target)) {     //true
+            Micro_Targets[player - 1][i].registeredDPS += dps;
+            Micro_Forces[player - 1][forceindex].targetindex = i;
+
+        }
+        i += 1;
+    }
+}
+
+fixed UnitGetHealth(unit u) {
+    fixed totalShields = UnitGetPropertyFixed(u, c_unitPropShields, c_unitPropCurrent);
+    fixed totalHealth = UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent);
+
+    return totalShields + totalHealth;
+}
+
+unit MH_FindSuitableTarget(int player, unitgroup enemiesInRange, fixed range, unit attacker) {
+    int i = 0;
+    int j = 0;
+    bool found = false;
+    unit targetableUnit;
+    unit currentTarget = null;
+    //unitgroup iteration
+    for (j = 1; j <= UnitGroupCount(enemiesInRange, c_unitCountAll); j = j + 1) {
+        i = 0;
+        targetableUnit = UnitGroupUnit(enemiesInRange, j);
+        if (UnitGetOwner(targetableUnit)==player||DistanceBetweenPoints(UnitGetPosition(attacker), UnitGetPosition(targetableUnit)) > range) {
+            continue;
+        }
+        found = false;
+        while (i < 20) {
+            if (Micro_Targets[player - 1][i].target == targetableUnit) {     //
+                if (Micro_Targets[player - 1][i].registeredDPS < UnitGetHealth(targetableUnit)) {
+                    if (currentTarget == null || UnitGetHealth(targetableUnit) < UnitGetHealth(currentTarget)) {
+                        currentTarget = Micro_Targets[player - 1][i].target;
+                    }
+                } else {
+                    DebugAI("Switching Target, Target will die soon anyways!");
+                }
+                found = true;
+            }
+            i += 1;
+        }
+        if (!found && currentTarget == null) {
+            DebugAI("Hostile " + UnitGetType(targetableUnit) + " spotted!");
+            currentTarget = targetableUnit;
+        }
+    }
+    //end unitgroup iteration
+    return currentTarget;
+}
+
+void MH_StalkerAI_3(int player, unit aiUnit, unitgroup scanGroup) {
+
+    unitgroup filtergroup = scanGroup;
+    unit target;
+    order attack;
+    //retreat logic
+    
+    //filter scanGroup by range and enemies
+    target = MH_FindSuitableTarget(player, filtergroup, 6.1, aiUnit);
+    if (target != null) {
+        //DebugAI("Found Suitable Target! Health = " + FixedToString(UnitGetHealth(target), 4));
+        if (UnitGetHealth(aiUnit) < 50) {
+            TryRetreat(player, aiUnit, target);
+        }
+        MH_RegisterForce(player, aiUnit, target, 40.0);
+        attack = Order(AbilityCommand("attack", 0));
+        OrderSetTargetUnit(attack, target);
+        UnitIssueOrder(aiUnit, attack, c_orderQueueAddToFront);
+        //AICast(aiUnit, attack, c_noMarker, c_castHold);
+        //attack order
+    } else {
+        //DebugAI("No Suitable Target");
+
+    }
+}
+
+void NG_MH_NukeTest(int launcherPlayer, int nukedPlayer) {
+    PlayerCreateEffectPoint(launcherPlayer, "NukeDetonate", PlayerStartLocation(nukedPlayer));
+    DebugAI("Spawned Nuke!");
+}
+
+void NG_MH_Stats(int playerid) {
+    DebugAI("Supply: " + IntToString(PlayerGetPropertyInt(playerid, c_playerPropSuppliesUsed)) + " / " + IntToString(PlayerGetPropertyInt(playerid, c_playerPropSuppliesMade)));
+    DebugAI("Minerals: " + IntToString(PlayerGetPropertyInt(playerid, c_playerPropMinerals)));
+    DebugAI("Vespene: " + IntToString(PlayerGetPropertyInt(playerid, c_playerPropVespene)));
+}
+
+void NG_MH_AddHighPrioUnit(int player, string unitString, int number) {
+    NG_AddHighPrioUnit(player, number, unitString);
+}
+
+void NG_MH_ToogleAutoSupply(int player) {
+    SetAutoSupply(player, !GetAutoSupply(player));
+    if (GetAutoSupply(player)) {
+        DebugAI("Auto Supply is now on for Player " + IntToString(player));
+    } else {
+        DebugAI("Auto Supply is now off for Player " + IntToString(player));
+    }
+}
+
+void NG_MH_ToogleAutoExpand(int player) {
+    SetAutoExpand(player, !GetAutoExpand(player));
+    if (GetAutoExpand(player)) {
+        DebugAI("Auto Expand is now on for Player " + IntToString(player));
+    } else {
+        DebugAI("Auto Expand is now off for Player " + IntToString(player));
+    }
+}
+
+string PointToString_MH(point p, int accuracy) {
+    fixed x;
+    fixed y;
+    if (p == null) {
+        return "null";
+    }
+    x = PointGetX(p);
+    y = PointGetY(p);
+    return "(" + FixedToString(x, accuracy) + "|" + FixedToString(y, accuracy) + ")";
+}
+
+void NG_MH_ToogleAutoWorkers(int player) {
+    SetAutoWorkers(player, !GetAutoWorkers(player));
+    if (GetAutoWorkers(player)) {
+        DebugAI("Auto Workers is now on for Player " + IntToString(player));
+    } else {
+        DebugAI("Auto Workers is now off for Player " + IntToString(player));
+    }
+}
+
+trigger gt_DebugTrigger;
+
+bool gt_DebugTrigger_Func(bool testConds, bool runActions) {
+    // Conditions
+    if (!((UnitGetType(EventUnit()) == "Drone"))) {
+        return false;
+    }
+
+    // Actions
+    if (!runActions) {
+        return true;
+    }
+
+    DebugAI("Order " + AbilityCommandGetAbility(OrderGetAbilityCommand(EventUnitOrder())) + " " + IntToString(AbilityCommandGetAction(OrderGetAbilityCommand(EventUnitOrder()))) + " at " + PointToString_MH(OrderGetTargetPoint(EventUnitOrder()), 3) + "(" + PointToString_MH(OrderGetTargetPosition(EventUnitOrder()), 3) + ") Type: " + IntToString(OrderGetTargetType(EventUnitOrder())) + " Unit: " + UnitGetType(OrderGetTargetUnit(EventUnitOrder())));
+    return true;
+}
+
+void MH_Ability_Debug() {
+    gt_DebugTrigger = TriggerCreate("gt_DebugTrigger_Func");
+    TriggerAddEventUnitOrder(gt_DebugTrigger, null, null); //AbilityCommand("ZergBuild", 2)
+
+}

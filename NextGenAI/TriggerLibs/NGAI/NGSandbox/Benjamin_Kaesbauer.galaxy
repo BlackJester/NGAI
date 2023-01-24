@@ -1,0 +1,98 @@
+//u hav cookies?
+
+void NG_BK_Fight(int playerid) {
+    DebugAI("BR: " + IntToString(UnitTypeGetCost(c_TB_BarracksReactor, c_unitCostSumMineralsVespene)));
+    DebugAI("BT: " + IntToString(UnitTypeGetCost(c_TB_BarracksTechLab, c_unitCostSumMineralsVespene)));
+    DebugAI("FR: " + IntToString(UnitTypeGetCost(c_TB_FactoryReactor, c_unitCostSumMineralsVespene)));
+    DebugAI("FT: " + IntToString(UnitTypeGetCost(c_TB_FactoryTechLab, c_unitCostSumMineralsVespene)));
+    DebugAI("SR: " + IntToString(UnitTypeGetCost(c_TB_StarportReactor, c_unitCostSumMineralsVespene)));
+    DebugAI("ST: " + IntToString(UnitTypeGetCost(c_TB_StarportTechLab, c_unitCostSumMineralsVespene)));
+    DebugAI("GR: " + IntToString(UnitTypeGetCost(c_TB_GenericReactor, c_unitCostSumMineralsVespene)));
+    DebugAI("GT: " + IntToString(UnitTypeGetCost(c_TB_GenericTechLab, c_unitCostSumMineralsVespene)));
+}
+
+void NG_BK_counterTest(int playerid, int unitcount, string unitname) {
+    int i;
+    //i = NG_roundUp(StringToFixed(unitname));
+    //UnitCreate(unitcount, unitname, c_unitCreateIgnorePlacement, playerid, Point(80.0, 80.0), 0.0);
+    i = NG_getMissingUnitDependencies(playerid, unitname);
+    DebugAI(IntToString(i));
+}
+
+void NG_BK_initCounter(int playerid, int enemyid) {
+    NG_initBasicCounterTable(playerid, enemyid);
+    NG_initTechCounterTable(playerid, enemyid);
+    NG_initDepArray(playerid);
+    NG_initUnitArray(playerid);
+}
+
+void BK_StalkerAI_11(int player, unit aiUnit, unitgroup scanGroup) {
+    unit unitToAttack;
+    fixed distToEnemy;
+    fixed tempDist;
+    order atkorder;
+    int range;
+    int i;
+
+    DebugAI(FixedToString(UnitGetDamageDealtTime(aiUnit), 2));
+
+    return;
+
+    AICreateOrder(player, c_AB_Attack, 0);
+
+    distToEnemy = 100;
+    if (UnitGroupCount(scanGroup, c_unitCountAlive) != 0) {
+        for (i = 1; i <= UnitGroupCount(scanGroup, c_unitCountAlive); i += 1) {
+            tempDist = DistanceBetweenPoints(UnitGetPosition(aiUnit), UnitGetPosition(UnitGroupUnit(scanGroup, i)));
+            DebugAI(FixedToString(tempDist, 3));
+            if (tempDist < distToEnemy) {
+                tempDist = distToEnemy;
+                unitToAttack = UnitGroupUnit(scanGroup, i);
+            }
+        }
+        OrderSetTargetUnit(atkorder, unitToAttack);
+        AICast(aiUnit, atkorder, c_noMarker, c_castHold);
+    }
+}
+
+void NG_BK_makeGroup(int playerid) {
+    unitgroup testGroup;
+    testGroup = UnitGroup(null, c_playerAny, RegionCircle(Point(80.0, 80.0), 10), null, c_noMaxCount);
+    NG_counterToEnemy(playerid, testGroup);
+}
+
+void NG_BK_clearCenter() {
+    unitgroup testGroup;
+    testGroup = UnitGroup(null, c_playerAny, RegionCircle(Point(80.0, 80.0), 10), null, c_noMaxCount);
+    UnitGroupLoopBegin(testGroup);
+    while (!UnitGroupLoopDone()) {
+        UnitKill(UnitGroupLoopCurrent());
+        UnitGroupLoopStep();
+    }
+    UnitGroupLoopEnd();
+}
+
+void NG_BK_test(int playerid, int unitcount) {
+    unitgroup testGroup;
+    testGroup = UnitGroup(null, c_playerAny, RegionCircle(Point(80.0, 80.0), 10), null, c_noMaxCount);
+    UnitGroupLoopBegin(testGroup);
+    while (!UnitGroupLoopDone()) {
+        DebugAI(IntToString(NG_getUnitCost(playerid, UnitGetType(UnitGroupLoopCurrent()), unitcount)));
+        UnitGroupLoopStep();
+    }
+    UnitGroupLoopEnd();
+}
+
+int NG_waveSize(int playerid, int waveNum) {
+    unitgroup grp;
+    int count;
+    count = 0;
+    grp = g_NG_Waves[playerid - 1][waveNum].waveGroup;
+    UnitGroupLoopBegin(grp);
+    while (!UnitGroupLoopDone()) {
+        count = count + 1;
+        UnitGroupLoopStep();
+    }
+    UnitGroupLoopEnd();
+    return count;
+}

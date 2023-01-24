@@ -1,0 +1,124 @@
+void NG_ProtInitBurner1(int player) {
+    //            player, unitString  , buildOnce, Burning Ressource, minimalLevel, Build Count (fixed)
+    NG_AddBurnPos(player, c_PU_Adept, false, NG_BurnMineral, 2, 0.3);
+    NG_AddBurnPos(player, c_PU_Immortal, false, NG_BurnMineral, 2, 0.1);
+    NG_AddBurnPos(player, c_PU_Zealot, false, NG_BurnMineral, 2, 0.3);
+
+    NG_AddBurnPos(player, c_PB_PhotonCannon, false, NG_BurnMineral, 2, 0.15);
+    NG_AddBurnPos(player, c_PB_Gateway, false, NG_BurnMineral, 4, 0.3);
+
+    NG_AddBurnPos(player, c_PU_HighTemplar, false, NG_BurnVespene, 2, 0.2);
+    NG_AddBurnPos(player, c_PU_Archon, false, NG_BurnVespene, 2, 0.1);
+    NG_AddBurnPos(player, c_PU_Sentry, false, NG_BurnVespene, 2, 0.1);
+
+    NG_AddBurnPos(player, c_PU_Disruptor, false, NG_BurnBoth, 2, 0.1);
+    NG_AddBurnPos(player, c_PU_Phoenix, false, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PU_VoidRay, false, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PU_Tempest, false, NG_BurnBoth, 2, 0.1);
+
+    NG_AddBurnPos(player, c_PB_Stargate, false, NG_BurnBoth, 4, 0.2);
+}
+
+void NG_ProtInitBurnerMech(int player) {
+    //            player, unitString  , buildOnce, Burning Ressource, minimalLevel, Build Count (fixed)
+    NG_AddBurnPos(player, c_PU_Adept, false, NG_BurnMineral, 2, 0.1);
+    NG_AddBurnPos(player, c_PU_Immortal, false, NG_BurnMineral, 2, 0.4);
+    NG_AddBurnPos(player, c_PU_Stalker, false, NG_BurnMineral, 2, 1);
+
+    NG_AddBurnPos(player, c_PB_PhotonCannon, false, NG_BurnMineral, 2, 0.3);
+    NG_AddBurnPos(player, c_PB_Gateway, false, NG_BurnMineral, 6, 2);
+
+    NG_AddBurnPos(player, c_PU_Colossus, false, NG_BurnVespene, 3, 0.3);
+    NG_AddBurnPos(player, c_PU_Archon, false, NG_BurnVespene, 2, 0.15);
+    NG_AddBurnPos(player, c_PU_Carrier, false, NG_BurnVespene, 5, 0.15);
+
+    NG_AddBurnPos(player, c_PU_Stalker, false, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_PU_Disruptor, false, NG_BurnBoth, 2, 0.1);
+    NG_AddBurnPos(player, c_PU_Oracle, false, NG_BurnBoth, 2, 0.05);
+    NG_AddBurnPos(player, c_PU_VoidRay, false, NG_BurnBoth, 4, 0.1);
+    NG_AddBurnPos(player, c_PU_Tempest, false, NG_BurnBoth, 2, 0.1);
+
+    NG_AddBurnPos(player, c_PB_RoboticsFacility, false, NG_BurnBoth, 5, 1);
+
+    //Researchs
+    NG_AddBurnPos(player, c_PR_GroundArmor1, true, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundArmor2, true, NG_BurnBoth, 3, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundArmor3, true, NG_BurnBoth, 4, 0.2);
+
+    NG_AddBurnPos(player, c_PR_GroundWeapons1, true, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundWeapons2, true, NG_BurnBoth, 3, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundWeapons3, true, NG_BurnBoth, 4, 0.2);
+
+}
+
+void NG_EmptyProtossBurner(int player) {
+}
+
+void NG_ProtInitBurnerAdept(int player) {
+    NG_AddBurnPos(player, c_PU_Adept, false, NG_BurnMineral, 2, 0.5);
+    NG_AddBurnPos(player, c_PU_Immortal, false, NG_BurnMineral, 2, 0.3);
+    NG_AddBurnPos(player, c_PU_Stalker, false, NG_BurnMineral, 2, 1);
+
+    NG_AddBurnPos(player, c_PB_PhotonCannon, false, NG_BurnMineral, 2, 0.3);
+    NG_AddBurnPos(player, c_PB_Gateway, false, NG_BurnMineral, 6, 2);
+
+    NG_AddBurnPos(player, c_PU_Colossus, false, NG_BurnVespene, 3, 0.3);
+    NG_AddBurnPos(player, c_PU_Archon, false, NG_BurnVespene, 2, 0.15);
+
+    //NG_AddBurnPos(player, c_PU_Stalker, false, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_PB_RoboticsFacility, false, NG_BurnBoth, 5, 1);
+
+    //research
+    //NG_AddBurnPos(player, c_PR_StalkerBlink, true, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PR_AdeptShield, true, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundArmor1, true, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundArmor2, true, NG_BurnBoth, 3, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundArmor3, true, NG_BurnBoth, 4, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundWeapons2, true, NG_BurnBoth, 3, 0.2);
+    NG_AddBurnPos(player, c_PR_GroundWeapons3, true, NG_BurnBoth, 4, 0.2);
+}
+
+void NG_ProtInitBurnerPhoenix(int player) {
+    NG_AddBurnPos(player, c_PU_Immortal, false, NG_BurnMineral, 2, 0.4);
+    NG_AddBurnPos(player, c_PU_Stalker, false, NG_BurnMineral, 2, 1);
+    NG_AddBurnPos(player, c_PB_Gateway, false, NG_BurnMineral, 6, 2);
+
+    NG_AddBurnPos(player, c_PU_Phoenix, false, NG_BurnVespene, 2, 0.3);
+    NG_AddBurnPos(player, c_PU_Colossus, false, NG_BurnVespene, 3, 0.3);
+    NG_AddBurnPos(player, c_PU_Carrier, false, NG_BurnVespene, 5, 0.15);
+
+    NG_AddBurnPos(player, c_PU_Phoenix, false, NG_BurnBoth, 2, 1);
+    NG_AddBurnPos(player, c_PU_Carrier, false, NG_BurnBoth, 5, 0.4);
+
+    NG_AddBurnPos(player, c_PB_RoboticsFacility, false, NG_BurnBoth, 5, 1);
+    NG_AddBurnPos(player, c_PB_Stargate, false, NG_BurnBoth, 5, 1);
+
+    //research
+
+    NG_AddBurnPos(player, c_PR_PhoenixRange, true, NG_BurnBoth, 2, 0.2);
+    NG_AddBurnPos(player, c_PR_AirArmor1, true, NG_BurnBoth, 4, 0.2);
+    NG_AddBurnPos(player, c_PR_AirArmor2, true, NG_BurnBoth, 4, 0.2);
+    NG_AddBurnPos(player, c_PR_AirArmor3, true, NG_BurnBoth, 4, 0.2);
+    NG_AddBurnPos(player, c_PR_AirWeapons1, true, NG_BurnBoth, 4, 0.2);
+    NG_AddBurnPos(player, c_PR_AirWeapons2, true, NG_BurnBoth, 4, 0.2);
+    NG_AddBurnPos(player, c_PR_AirWeapons3, true, NG_BurnBoth, 4, 0.2);
+
+}
+
+void NG_ProtInitBasicBurner(int player){
+	//            player, unitString  , buildOnce, Burning Ressource, minimalLevel, Build Count (fixed)
+	NG_AddBurnPos(player, c_PU_Stalker, false, NG_BurnMineral, 1, 0.6);
+	NG_AddBurnPos(player, c_PU_Zealot, false, NG_BurnMineral, 1, 0.75);
+	NG_AddBurnPos(player, c_PU_Immortal, false, NG_BurnMineral, 1, 0.4);
+	//NG_AddBurnPosCapped(player, c_PB_PhotonCannon, false, NG_BurnMineral, 2, 0.3, 10);
+
+	//    NG_AddBurnPos(player, c_PU_Colossus, false, NG_BurnVespene, 3, 0.3);
+	//    NG_AddBurnPos(player, c_PU_Archon, false, NG_BurnVespene, 2, 0.25);
+	//
+	//    NG_AddBurnPos(player, c_PR_GroundArmor1, true, NG_BurnBoth, 2, 0.3);
+	//    NG_AddBurnPos(player, c_PR_GroundArmor2, true, NG_BurnBoth, 3, 0.2);
+	//    NG_AddBurnPos(player, c_PR_GroundArmor3, true, NG_BurnBoth, 4, 0.2);
+	//
+	//    NG_AddBurnPos(player, c_PR_GroundWeapons2, true, NG_BurnBoth, 3, 0.2);
+	//    NG_AddBurnPos(player, c_PR_GroundWeapons3, true, NG_BurnBoth, 4, 0.2);
+}

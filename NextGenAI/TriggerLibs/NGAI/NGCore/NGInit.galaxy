@@ -1,0 +1,179 @@
+//==================================================================================================
+// Init Functions. 
+//==================================================================================================
+
+// only run once per map (init your globals here)
+void NG_initOncePerMap() {
+    NG_initGlobal();
+    NG_initCommander();
+
+    NG_initZerg();
+    NG_initProtoss();
+    NG_initTerran();
+
+    NG_initSpy();
+    NG_initBuildManager();
+    NG_UnitDied_Init();
+    NG_initShittalkTrigger();
+    //MH_Ability_Debug();
+}
+
+// only run once per ngai (init your ngai unique globals here)
+void NG_initOncePerNGAI(int player) {
+    
+    AISetDifficulty(player, c_diffLimitAPM, false);        // limit all apm on lower difficulties
+    AISetDifficulty(player, c_diffLimitAPMCombat, false);
+    //AISetDifficulty(player, c_diffUseExtraScouts, true);  //Overlord Scouting is custom now
+    AISetDifficulty(player, c_diffPressForward, true);
+    AISetDifficulty(player, c_diffOptimizeGas, true);
+    AISetAPM(player, 9001);
+    NG_initDepArray(player);
+    NG_initUnitArray(player);
+    NG_initBasicCounterTable(player, (((player) % 2) + 1));
+    NG_initTechCounterTable(player, (((player) % 2) + 1));
+    NG_initSpyForNGAI(player);
+    NG_initCounterManager(player);
+    NG_WMInit(player);
+    NG_initCombatManager(player);
+    NG_MarkPotentialExpansions(player);
+    NG_initShittalk(player);
+}
+
+bool NG_initMain(int player) {
+
+    unitgroup playerunits;
+    int cpuplayer;
+    int humanplayer;
+    int numberunits;
+    int currentunit;
+    int numAIplayer;
+    trigger NG2Respond;
+
+    // This Part is for Userspecific option : setting Commander INDEX
+    if (AIGetTime() >= 10 && AIGetUserInt(player, c_NGUD_INIT) == 1337 && AIGetUserInt(player, c_NGUD_COMMANDER_INDEX) != -1) {
+        NG_debugCommander("Loading Commander : " + IntToString(AIGetUserInt(player, c_NGUD_COMMANDER_INDEX)) + " for player: " + IntToString(player));
+
+        // move status to Open !
+        AISetMainState(player, e_mainState_Open, e_mainSubState_Init);
+        // unfreeze game
+        NG_freezeGame(false);
+    } else if (AIGetTime() >= 10)	// if nothing happend load a rnd commander !
+            {
+        if (NG_playerIsNGAI(player)) {
+            NG_initCommanderForNGAI(player);
+        } else {
+            NG_debugInit("Loading BlizzAI( " + NG_diffToString(AIPlayerDifficulty(player)) + ") for player: " + IntToString(player));
+        }
+
+        // move status to Open !
+        AISetMainState(player, e_mainState_Open, e_mainSubState_Init);
+        // unfreeze game
+        NG_freezeGame(false);
+
+    }
+
+    // THIS CODE WILL RUN ONCE PER NG AI
+    if (AIGetUserInt(player, c_NGUD_INIT) != 1337 && NG_playerIsNGAI(player)) {
+        AIResetUserData(player);
+        AISetUserInt(player, c_NGUD_INIT, 1337);
+        AISetUserInt(player, c_NGUD_COMMANDER_INDEX, -1);		// set to random
+
+        // NG_debugInit("This will run once for player: " + IntToString(player));
+        NG_initOncePerNGAI(player);
+
+    }
+
+    // THIS CODE RUNS ONLY ONCE PER MAP NOT PER AI / PLAYER
+    if (g_NGTriggerRunOnce == false) {
+
+        // Freeze the game first
+        NG_freezeGame(true);
+
+        // first check wether if its a AI vs AI or AI vs HU game
+        // to do this: count num of AI players on map
+        numAIplayer = 0;
+        cpuplayer = 0;
+        while (cpuplayer <= 15) {
+            if (PlayerType(cpuplayer) == c_playerTypeComputer) {
+                numAIplayer = numAIplayer + 1;
+            }
+            cpuplayer = cpuplayer + 1;
+        }
+
+        if (numAIplayer >= 2) {
+            // iterate and search for humanplayer
+            NG_debugInit("Preparing AI vs AI Match:");
+            humanplayer = -1;
+            while (humanplayer <= 15) {
+                humanplayer = humanplayer + 1;
+
+                if (PlayerType(humanplayer) == c_playerTypeUser) {
+
+                    // iterate through cpu player and share Vision and Control
+                    cpuplayer = -1;
+                    while (cpuplayer <= 15) {
+                        if (PlayerType(cpuplayer) == c_playerTypeComputer) {
+                            PlayerSetAlliance(cpuplayer, c_allianceIdVision, humanplayer, true);
+                            PlayerSetAlliance(cpuplayer, c_allianceIdControl, humanplayer, true);
+                        }
+                        cpuplayer = cpuplayer + 1;
+                    }
+
+                    // Deactivate defeat option
+                    MeleeSetOption(humanplayer, c_meleeOptionDefeat, false);
+                    // Select all units from human player
+                    playerunits = UnitGroup(null, humanplayer, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0);
+                    numberunits = UnitGroupCount(playerunits, 0);
+                    // Kill all selected units
+                    while (currentunit <= numberunits) {
+                        UnitKill(UnitGroupUnit(playerunits, currentunit));
+                        currentunit = currentunit + 1;
+                    }
+                }
+            }
+
+            NG_StatsDialogInitTriggers();
+            //NG_WMInit(player);
+
+        } else {
+            // disable debug output for Participants
+            NG_debugInit("Preparing AI vs HU Match, gl dude!");
+            NG_debugInit("Disabling Debug Messages");
+            DEBUG_AI = false;
+            DEBUG_MAIN_STATE = false;
+            DEBUG_ATTACK_STATE = false;
+            DEBUG_WAVE = false;
+            DEBUG_WITH_MESSAGE = false;
+        }
+
+        // Trigger event for everything starting with "-"
+        NG2Respond = TriggerCreate("NG_respond");
+        TriggerAddEventChatMessage(NG2Respond, c_playerAny, "-", false);
+        g_NGTriggerRunOnce = true;
+
+        NG_initOncePerMap();
+    }
+
+    // This will execute ONCE per AI (including BlizzAI)
+    if (AIGetUserInt(player, c_NGUD_RunOnceForEveryAI) != 1337) {
+
+        AISetUserInt(player, c_NGUD_RunOnceForEveryAI, 1337);
+        return false;
+    }
+
+    return true;
+}
+//include "TriggerLIbs/Tactical/NGAITacticalAI"
+void NG_AI_Main(int player) {
+    AIEnableStock(player);
+    NG_ShuffleHPQ(player);        //Dont even ask (look at the comment in the function)
+    NG_BuildLoop(player);
+    NG_TryBurn(player);
+    //Wave manager function
+    //NG_mergeReinforceInAttack(player);
+    NG_distributeUnits(player);
+    NG_CombatLoop(player);
+    NG_spyScan(player);
+    NG_AIThink(player);
+    NG_DoShittalkLoop(player);
+}

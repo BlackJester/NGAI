@@ -1,0 +1,207 @@
+//==================================================================================================
+//
+// Generated Map Script
+//
+// Name:   D??mmert??rme
+//
+//==================================================================================================
+include "TriggerLibs/NativeLib"
+
+//--------------------------------------------------------------------------------------------------
+// Trigger Variables
+//--------------------------------------------------------------------------------------------------
+//trigger statsDialogInitializationTrigger;
+trigger cyclicRefreshTrigger;
+trigger tabTrigger;
+
+//--------------------------------------------------------------------------------------------------
+// Trigger: Melee Initialization
+//--------------------------------------------------------------------------------------------------
+bool NG_StatsDialogInit(bool testConds, bool runActions) {
+    // Actions
+    // Calculate required Height of Dialog
+    int playerCount = PlayerGroupCount(PlayerGroupActive());
+    int dialogHeight = (playerCount + 4) * 22;
+    int i = 0;
+
+    int NumAI = 0;
+    int NumHU = 0;
+
+    g_NG_Dialog_colorHex[0] = "ffffff";
+    g_NG_Dialog_colorHex[1] = "ff0000";
+    g_NG_Dialog_colorHex[2] = "0000ff";
+    g_NG_Dialog_colorHex[3] = "008080";
+    g_NG_Dialog_colorHex[4] = "800080";
+    g_NG_Dialog_colorHex[5] = "ffff00";
+    g_NG_Dialog_colorHex[6] = "ffa500";
+    g_NG_Dialog_colorHex[7] = "008000";
+    g_NG_Dialog_colorHex[8] = "ffffff";
+    g_NG_Dialog_colorHex[9] = "ffb6c1";
+    g_NG_Dialog_colorHex[10] = "ee82ee";
+    g_NG_Dialog_colorHex[11] = "006400";
+    g_NG_Dialog_colorHex[12] = "a52a2a";
+    g_NG_Dialog_colorHex[13] = "90ee90";
+    g_NG_Dialog_colorHex[14] = "a9a9a9";
+    g_NG_Dialog_colorHex[15] = "ffc0cb";
+
+    if (!runActions) {
+        return true;
+    }
+
+    // iterate through all players and set / save PlayerType
+    for (i = 1; i <= 12; i = i + 1) {
+        if (PlayerGroupHasPlayer(PlayerGroupActive(), i) )  {
+            if (PlayerType(i) == c_playerTypeUser) {
+                NumHU = NumHU + 1;
+                g_NG_UpdateDialogPlayer[i] = c_NG_dialogPlayer_HU;
+            }
+            else if (PlayerType(i) == c_playerTypeComputer) {
+                NumAI = NumAI + 1;
+                if (NG_playerIsNGAI(i)) {
+                    g_NG_UpdateDialogPlayer[i] = c_NG_dialogPlayer_NGAI;
+                }
+                else {
+                    g_NG_UpdateDialogPlayer[i] = c_NG_dialogPlayer_BLIZ;
+                }
+            }
+            else {
+                g_NG_UpdateDialogPlayer[i] = c_NG_dialogPlayer_NONE;
+            }
+        }
+        else {
+            g_NG_UpdateDialogPlayer[i] = c_NG_dialogPlayer_NONE;
+        }
+    }
+
+    // remove HU from updated list if AICount > 1
+    if (NumAI > 1 && NumHU >= 1) {
+        for (i = 1; i <= 12; i = i + 1) {
+            if (g_NG_UpdateDialogPlayer[i] == c_NG_dialogPlayer_HU) {
+                g_NG_UpdateDialogPlayer[i] = c_NG_dialogPlayer_NONE;
+            }
+        }
+    }
+
+
+    DialogCreate(600, dialogHeight, c_anchorTopRight, 0, 150, true);
+    DialogSetVisible(DialogLastCreated(), PlayerGroupAll(), true);
+    gv_mainDialog = DialogLastCreated();
+    libNtve_gf_CreateDialogItemButton(gv_mainDialog, 50, 100, c_anchorLeft, 0, 0, StringToText("Collapse/Expand"), StringToText(">"), "");
+    DialogSetImage(DialogLastCreated(), "Assets\\Textures\\ui_frame_default_protoss.dds");
+    libNtve_gf_SetDialogItemImage2(DialogControlLastCreated(), "Assets\\Textures\\ui_help_frame_tips_checkbox_normalpressed.dds", PlayerGroupAll());
+    gv_mainDialogTab = DialogControlLastCreated();
+    libNtve_gf_CreateDialogItemLabel(gv_mainDialog, 600, 300, c_anchorTopLeft, 50, 30, TextExpressionAssemble("Param/Expression/E042A39B"), ColorWithAlpha(0, 0, 0, 0), false, 2.0);
+    gv_mainDialogText = DialogControlLastCreated();
+
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+// Trigger: CyclicRefresh
+//--------------------------------------------------------------------------------------------------
+bool NG_CyclicRefresh(bool testConds, bool runActions) {
+    // Generate the Text for the DialogLabel containing the Stats
+    text labelText;
+    text playerName;
+
+    string minerals = "";
+    string vespene = "";
+    string supplyUsed = "";
+    string supplyAvailable = "";
+
+    string imgMinerals = "<img path=\"Assets\\Textures\\icon-mineral.dds\" width=\"20\" height=\"20\"/>";
+    string imgVespene = "<img path=\"Assets\\Textures\\icon-gas.dds\" width=\"20\" height=\"20\"/>";
+    string imgSupply = "<img path=\"Assets\\Textures\\icon-supply.dds\" width=\"20\" height=\"20\"/>";
+
+    int i = 0;
+
+    if (!runActions) {
+        return true;
+    }
+
+    for (i = 1; i <= 12; i = i + 1) {
+        if (g_NG_UpdateDialogPlayer[i] != c_NG_dialogPlayer_NONE) {
+            minerals = IntToString(PlayerGetPropertyInt(i, c_playerPropMinerals));
+            vespene = IntToString(PlayerGetPropertyInt(i, c_playerPropVespene));
+            supplyUsed = IntToString(PlayerGetPropertyInt(i, c_playerPropSuppliesUsed));
+            supplyAvailable = IntToString(PlayerGetPropertyInt(i, c_playerPropSuppliesMade));
+            playerName = PlayerName(i);
+
+            labelText = labelText + StringToText("<c val=\"" + g_NG_Dialog_colorHex[PlayerGetColorIndex(i, false)] + "\">");
+
+            if (g_NG_UpdateDialogPlayer[i] == c_NG_dialogPlayer_NGAI) {
+                labelText = labelText + StringToText(PlayerRace(i) + " [NGAI] ");
+                playerName = StringToText(NG_GetCommanderName(i));
+            }
+            else if (g_NG_UpdateDialogPlayer[i] == c_NG_dialogPlayer_BLIZ) {
+                labelText = labelText + StringToText(PlayerRace(i) + " [BLIZ] ");
+                playerName = DifficultyName(AIPlayerDifficulty(i));
+            }
+            else if (g_NG_UpdateDialogPlayer[i] == c_NG_dialogPlayer_HU) {
+                labelText = labelText + StringToText(PlayerRace(i) + " [HUM]  ");
+            }
+            else {
+                DebugAI("This should never happen : NGStatsDialog - NG_CyclicRefresh");
+            }
+
+            labelText = labelText + playerName + StringToText(imgMinerals + " " + minerals + " " + imgVespene + " " + vespene + " " + imgSupply + " " + supplyUsed + "/" + supplyAvailable + "</c><n/>");
+        }
+    }
+
+
+    // Add here more Text if needed --> But be careful about Dialog Height see StatsDialogInitialization_Func
+
+    libNtve_gf_SetDialogItemText(gv_mainDialogText, labelText, PlayerGroupAll());
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+void NG_CyclicRefreshTriggerInit() {
+    cyclicRefreshTrigger = TriggerCreate("NG_CyclicRefresh");
+    TriggerAddEventTimePeriodic(cyclicRefreshTrigger, 2.0, c_timeGame);
+}
+
+//--------------------------------------------------------------------------------------------------
+// Trigger: Tab
+//--------------------------------------------------------------------------------------------------
+bool NG_StatsDialogTab(bool testConds, bool runActions) {
+    // Conditions
+    if (testConds) {
+        if (!((EventDialogControl() == gv_mainDialogTab))) {
+            return false;
+        }
+    }
+
+    // Actions
+    if (!runActions) {
+        return true;
+    }
+
+    if ((DialogIsImageVisible(gv_mainDialog) == true)) {
+        DialogSetImageVisible(gv_mainDialog, false);
+        DialogSetPosition(gv_mainDialog, c_anchorTopRight, -550, 150);
+        libNtve_gf_SetDialogItemText(gv_mainDialogTab, StringExternal("<"), PlayerGroupAll());
+    } else {
+        DialogSetImageVisible(gv_mainDialog, true);
+        DialogSetPosition(gv_mainDialog, c_anchorTopRight, 0, 150);
+        libNtve_gf_SetDialogItemText(gv_mainDialogTab, StringExternal(">"), PlayerGroupAll());
+    }
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+void NG_StatsDialogTabInit() {
+    tabTrigger = TriggerCreate("NG_StatsDialogTab");
+    TriggerAddEventDialogControl(tabTrigger, c_playerAny, c_invalidDialogControlId, c_triggerControlEventTypeClick);
+}
+
+//--------------------------------------------------------------------------------------------------
+// Trigger Initialization
+//--------------------------------------------------------------------------------------------------
+void NG_StatsDialogInitTriggers() {
+    libNtve_InitLib();
+    NG_StatsDialogInit(true, true);
+    NG_StatsDialogTabInit();
+    NG_CyclicRefreshTriggerInit();
+
+}

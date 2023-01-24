@@ -1,0 +1,76 @@
+//==================================================================================================
+// Galaxy fuer die Includes
+//==================================================================================================
+
+include "TriggerLibs/NGAI/NGPrototyp"
+include "TriggerLibs/NGAI/NGConstant"
+include "TriggerLibs/NGAI/NGGlobal"
+
+include "TriggerLibs/NGAI/NGCore/NGHelper"
+
+// For Debugging funcs like X_to_String()
+include "TriggerLibs/NGAI/NGCore/NGDebug"
+
+//Tactical for NGAI
+include "TriggerLibs/Tactical/NGAITacticalAI"
+include "TriggerLibs/Tactical/NGAIThinkProt"
+include "TriggerLibs/Tactical/NGAIThinkTerr"
+include "TriggerLibs/Tactical/NGAIThinkZerg"
+
+// This file is for ingame Commands
+include "TriggerLibs/NGAI/NGCore/NGCommand"
+
+// NG Init Funcs
+include "TriggerLibs/NGAI/NGCore/NGInit"
+include "TriggerLibs/NGAI/NGCore/NGShittalk"
+include "TriggerLibs/NGAI/NGStatsDialog"
+
+// This are the Sandbox Test command files
+include "TriggerLibs/NGAI/NGSandbox/Michael_Ernst"
+include "TriggerLibs/NGAI/NGSandbox/Uwe_Roesler"
+include "TriggerLibs/NGAI/NGSandbox/Thomas_Krammer"
+include "TriggerLibs/NGAI/NGSandbox/Michael_Habicht"
+include "TriggerLibs/NGAI/NGSandbox/Serkan_Soeylemez"
+include "TriggerLibs/NGAI/NGSandbox/Michael_Hoepp"
+include "TriggerLibs/NGAI/NGSandbox/Remko_vanWagensveld"
+include "TriggerLibs/NGAI/NGSandbox/Matthias_Strauss"
+include "TriggerLibs/NGAI/NGSandbox/Adrian_Utrilla"
+include "TriggerLibs/NGAI/NGSandbox/Benjamin_Kaesbauer"
+include "TriggerLibs/NGAI/NGSandbox/Simon_Kompass"
+include "TriggerLibs/NGAI/NGSandbox/Justus_Schmidt"
+
+// INSERT RACE COMMANDER FILES HERE
+include "TriggerLibs/NGAI/NGCore/NGCommander"
+
+include "TriggerLibs/NGAI/NGCore/NGCombatManager"
+include "TriggerLibs/NGAI/NGCore/NGWaveManager"
+
+// NG Spy Management
+include "TriggerLibs/NGAI/NGCore/NGSpy"
+
+include "TriggerLibs/NGAI/NGCore/NGRessourceBurner"
+include "TriggerLibs/NGAI/NGCore/NGBuildOrder"
+include "TriggerLibs/NGAI/NGCore/NGBuildDecider"
+
+
+// NG Race Specific Mains
+
+include "TriggerLibs/NGAI/NGProtoss/NGProtoss"
+include "TriggerLibs/NGAI/NGTerran/NGTerran"
+include "TriggerLibs/NGAI/NGZerg/NGZerg"
+
+// NG Statemanager
+include "TriggerLibs/NGAI/NGCore/NGStateManager"
+
+// NG Race Specific Buildorders
+include "TriggerLibs/NGAI/NGZerg/NGZergBuildOrder"
+include "TriggerLibs/NGAI/NGProtoss/NGProtossBuildOrder"
+include "TriggerLibs/NGAI/NGTerran/NGTerranBuildOrder"
+
+// NG Race Specific Burner
+include "TriggerLibs/NGAI/NGZerg/NGZergBurner"
+include "TriggerLibs/NGAI/NGProtoss/NGProtossBurner"
+include "TriggerLibs/NGAI/NGTerran/NGTerranBurner"
+
+
+

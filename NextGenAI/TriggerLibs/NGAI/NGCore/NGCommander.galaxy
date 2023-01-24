@@ -1,0 +1,192 @@
+void Funcref_BuildOrderInit(int player);
+void Funcref_BurnerInit(int player);
+
+// One may use typedef to reduce code bloat where the funcref is used.
+typedef funcref<Funcref_BuildOrderInit> BuildOrderInitFunction;
+typedef funcref<Funcref_BurnerInit> BurnerInitFunction;
+
+struct NG_Commander {
+    BuildOrderInitFunction buildOrderInit;
+    BurnerInitFunction burnerInit;
+    string name;
+    string description;
+    int versusFlags;
+};
+
+struct NG_CommanderRace {
+    NG_Commander[c_NG_MAX_COMMANDER_BO] commanders;
+    int commanderCount;
+};
+
+int[8] currentNgaiCommander;
+NG_CommanderRace comRaceZerg;
+NG_CommanderRace comRaceProtoss;
+NG_CommanderRace comRaceTerran;
+
+string NG_GetCommanderName(int player) {
+    string race = PlayerRace(player);
+    if(currentNgaiCommander[player - 1]==-1){
+        return "Commander not set yet!";
+    }
+    if (race == c_RaceStringZerg) {
+        return comRaceZerg.commanders[currentNgaiCommander[player - 1]].name;
+    } else if (race == c_RaceStringProtoss) {
+        return comRaceProtoss.commanders[currentNgaiCommander[player - 1]].name;
+    } else if (race == c_RaceStringTerran) {
+        return comRaceTerran.commanders[currentNgaiCommander[player - 1]].name;
+    } else {
+        return race;
+    }
+}
+
+void NG_initCommander() {
+    int i;
+    comRaceZerg.commanderCount = 0;
+    comRaceProtoss.commanderCount = 0;
+    comRaceTerran.commanderCount = 0;
+    for (i = 0; i < 8; i += 1) {
+        currentNgaiCommander[i] = -1;
+    }
+}
+
+int NG_comRaceGetCap(string race) {
+    if (race == c_RaceStringZerg) {
+        return comRaceZerg.commanderCount;
+    } else if (race == c_RaceStringProtoss) {
+        return comRaceProtoss.commanderCount;
+    } else if (race == c_RaceStringTerran) {
+        return comRaceTerran.commanderCount;
+    } else {
+        return 0;
+    }
+}
+
+void NG_setCommanderForNGAI(int ngai, int commander) {
+    int cap = NG_comRaceGetCap(PlayerRace(ngai));
+
+    if (commander < cap) {
+        currentNgaiCommander[ngai - 1] = commander;
+    } else {
+        NG_debugError("Commander Index(" + IntToString(commander) + ") out of range(" + IntToString(cap));
+    }
+}
+
+int NG_getMatchup(int ngai) {
+    int i;
+    int matchup;
+    string enemyRace;
+
+    for (i = 1; i <= 8; i += 1) {
+        if (i == ngai) {
+            continue;
+        }
+        if (libNtve_gf_PlayerIsEnemy(ngai, i, libNtve_ge_PlayerRelation_Enemy) &&
+                !NG_playerIsDefeated(i)) {
+            enemyRace = PlayerRace(i);
+            if (enemyRace == c_RaceStringZerg) {
+                matchup = matchup | c_NGC_VERSUS_ZERG_FLAG;
+            } else if (enemyRace == c_RaceStringProtoss) {
+                matchup = matchup | c_NGC_VERSUS_PROTOSS_FLAG;
+            } else if (enemyRace == c_RaceStringTerran) {
+                matchup = matchup | c_NGC_VERSUS_TERRAN_FLAG;
+            }
+        }
+    }
+    return matchup;
+}
+
+int NG_rollCommanderForNGAI(int ngai, structref<NG_CommanderRace> comRef) {
+    int cap = NG_comRaceGetCap(PlayerRace(ngai));
+    int i;
+    int comindex;
+    int matchup = NG_getMatchup(ngai);
+
+    for (i = 0; i < c_NG_MAX_COMMANDER_PICK_RETRYS; i += 1) {
+        comindex = RandomInt(0, cap - 1);
+        // commander is allowed against matchup? return it
+        if (comRef.commanders[comindex].versusFlags & matchup) {
+            return comindex;
+        }
+    }
+    return RandomInt(0, cap - 1);
+}
+
+void NG_initCommanderForNGAI(int ngai) {
+    structref<NG_CommanderRace> ref;
+    string race = PlayerRace(ngai);
+    int commanderIndex = currentNgaiCommander[ngai - 1];
+
+    if (race == c_RaceStringZerg) {
+        ref = comRaceZerg;
+    } else if (race == c_RaceStringProtoss) {
+        ref = comRaceProtoss;
+    } else if (race == c_RaceStringTerran) {
+        ref = comRaceTerran;
+    } else {
+        return;
+    }
+
+    // if no commander is set, roll one for ngai
+    if (commanderIndex == -1) {
+        commanderIndex = NG_rollCommanderForNGAI(ngai, ref);
+        NG_setCommanderForNGAI(ngai, commanderIndex);
+    }
+
+    NG_debugCommander("My name is " + ref.commanders[commanderIndex].name + " Player(" + IntToString(ngai) + ") CommanderIndex:" + IntToString(commanderIndex));
+    // call init function of bo and burner
+    ref.commanders[commanderIndex].buildOrderInit(ngai);
+    ref.commanders[commanderIndex].burnerInit(ngai);
+}
+
+void NG_registerCommander(structref<NG_CommanderRace> race, BuildOrderInitFunction boInit, BurnerInitFunction burnInit, string name, string description, int versusFlags) {
+    int comIndex = race.commanderCount;
+    structref<NG_Commander> newCommander;
+
+    if (comIndex == c_NG_MAX_COMMANDER_BO) {
+        NG_debugError("We already have " + IntToString(c_NG_MAX_COMMANDER_BO) + " Commander registered.");
+        return;
+    }
+
+    // get struct of our new commander
+    newCommander = race.commanders[comIndex];
+
+    newCommander.buildOrderInit = boInit;
+    newCommander.burnerInit = burnInit;
+    newCommander.name = name;
+    newCommander.description = description;
+    newCommander.versusFlags = versusFlags;
+
+    race.commanderCount += 1;
+}
+
+void NG_addZergCommander(BuildOrderInitFunction boInit, BurnerInitFunction burnInit, string name, string description, int versusFlags) {
+    NG_registerCommander(comRaceZerg, boInit, burnInit, name, description, versusFlags);
+}
+
+void NG_addProtossCommander(BuildOrderInitFunction boInit, BurnerInitFunction burnInit, string name, string description, int versusFlags) {
+    NG_registerCommander(comRaceProtoss, boInit, burnInit, name, description, versusFlags);
+}
+
+void NG_addTerranCommander(BuildOrderInitFunction boInit, BurnerInitFunction burnInit, string name, string description, int versusFlags) {
+    NG_registerCommander(comRaceTerran, boInit, burnInit, name, description, versusFlags);
+}
+
+void NG_listCommander(string race) {
+    structref<NG_CommanderRace> ref;
+    int i;
+
+    if (race == c_RaceStringZerg) {
+        ref = comRaceZerg;
+    } else if (race == c_RaceStringProtoss) {
+        ref = comRaceProtoss;
+    } else if (race == c_RaceStringTerran) {
+        ref = comRaceTerran;
+    } else {
+        return;
+    }
+
+    DebugAI("==----- List of all " + race + " Commanders -----==");
+    for (i = 0; i < ref.commanderCount; i += 1) {
+        DebugAI(IntToString(i) + ". " + ref.commanders[i].name + " ; " + ref.commanders[i].description);
+    }
+}

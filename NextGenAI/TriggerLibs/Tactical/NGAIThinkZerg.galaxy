@@ -1,0 +1,1783 @@
+include "TriggerLibs/NGAI/NGPrototyp"
+
+//--------------------------------------------------------------------------------------------------
+//  *** Tactical Zerg AI ***
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+//  *** QUEEN ***
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+order NG_Transfusion(int player, unit aiUnit, marker mark) {
+    order ord;
+    unitgroup group;
+    aifilter filter;
+
+    if (AIIsCampaign(player)) {
+        if (AIPlayerDifficulty(player) < c_campAdvanced) {
+            return null;
+        }
+    }
+
+    ord = AICreateOrder(player, c_AB_Transfusion, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    group = AIFindUnits(player, null, UnitGetPosition(aiUnit), AIAbilityFixed(player, c_AB_Transfusion, c_fieldRange0) + 1, c_noMaxCount);
+
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupAlly);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, mark);
+    AISetFilterLifeLost(filter, AIEffectFixed(player, c_EF_Transfusion, c_fieldEffectChange0) - 20, c_noMax);
+    group = AIGetFilterGroup(filter, group);
+    if (group == null) {
+        return null;
+    }
+
+    return AIUnitGroupGetValidOrder(group, ord, aiUnit, c_forwards);
+}
+
+//--------------------------------------------------------------------------------------------------
+const int NG_maxLarva = 32;
+order NG_SpawnLarva(int player, unit aiUnit, marker mark) {
+    order ord;
+    unitgroup hatcheries;
+    unitgroup hatcheriesToBeBarfedOn;
+    unitgroup creeptumors;
+    aifilter filter;
+    int larvaCount;
+    int i;
+    unit curUnit;
+    unit barfingOn;
+    bool foundHatchWithoutLarva;
+    bool hasbehavior;
+    bool showDebugMessages;
+
+    showDebugMessages = false;
+
+    //  Only cast if idle.
+    //
+    if (UnitOrder(aiUnit, 0) != null) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_SpawnMutantLarva, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    //  Don't cast if we already own at least 32 larva
+    //
+    larvaCount = TechTreeUnitCount(player, c_ZU_Larva, c_techCountQueuedOrBetter);
+    if (larvaCount >= NG_maxLarva) {
+//        return null;
+    }
+
+    hatcheries = AIFindUnits(player, c_ZB_Hatchery_Alias, UnitGetPosition(aiUnit), 9999, c_noMaxCount);
+    hatcheriesToBeBarfedOn = UnitGroupCopy(hatcheries);
+    foundHatchWithoutLarva = false;
+
+    if (showDebugMessages) {
+        DebugAI("Checking" + IntToString(UnitGroupCount(hatcheries, c_unitCountAll)) + " Hatches");
+    }
+
+    i = 1;
+
+    //unitLoops only allowed in Trigger
+    for (; i <= UnitGroupCount(hatcheries, c_unitCountAll); i = i + 1) {
+        curUnit = UnitGroupUnit(hatcheries, i);
+
+        if (showDebugMessages) {
+            hasbehavior = UnitHasBehavior2(curUnit, "QueenSpawnLarvaTimer");
+            if (hasbehavior) {
+                DebugAI("Found Larva buff");
+            } else {
+                DebugAI("Didn't find larva buff");
+            }
+            DebugAI("Found " + IntToString(UnitBehaviorCountAll(curUnit)) + " Behaviores on a Hatch");
+        }
+
+        if (!UnitHasBehavior2(curUnit, "QueenSpawnLarvaTimer")) {
+            if (showDebugMessages) {
+                DebugAI("Found Hatch without Larva, GO BARF!!!");
+            }
+            foundHatchWithoutLarva = true;
+        } else {
+            if (showDebugMessages) {
+                DebugAI("Hatch with larva");
+            }
+            UnitGroupRemove(hatcheriesToBeBarfedOn, curUnit);
+        }
+    }
+
+    //Make atleast 1 Tumor so we get buildingspace
+    if (UnitGroupCount(hatcheries, 0) >= 2) {
+        if (UnitGroupCount(hatcheriesToBeBarfedOn, 0) < UnitGroupCount(hatcheries, 0)) {
+            creeptumors = UnitGroup(c_ZB_CreepTumor, player, RegionEntireMap(), null, c_noMaxCount);
+            UnitGroupAddUnitGroup(creeptumors, UnitGroup(c_ZB_CreepTumorBurrowed, player, RegionEntireMap(), null, c_noMaxCount));
+            if (UnitGroupCount(creeptumors, 0) == 0) {
+                return null;
+            }
+        }
+    }
+
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupAlly);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, mark);
+
+    hatcheriesToBeBarfedOn = AIGetFilterGroup(filter, hatcheriesToBeBarfedOn);
+
+    if (foundHatchWithoutLarva) {
+        barfingOn = UnitGroupClosestToPoint(hatcheriesToBeBarfedOn, UnitGetPosition(aiUnit));
+
+        OrderSetTargetUnit(ord, barfingOn);
+        return ord;
+//        return AIUnitGroupGetValidOrder(hatcheriesToBeBarfedOn, ord, aiUnit, c_backwards);
+    }
+
+    return null;
+}
+
+//--------------------------------------------------------------------------------------------------
+order NG_CreepTumor(int player, unit aiUnit) {
+
+    order ord;
+    point p;
+    int currentNumberOfTumors;
+    unitgroup activeTumors;
+    int i;
+
+    if (AIIsCampaign(player)) {
+        return null;
+    }
+
+    //  Only cast if idle.
+    //
+    if (UnitOrder(aiUnit, 0) != null) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_QueenBuild, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    if (UnitGetPropertyInt(aiUnit, c_unitPropEnergy, c_unitPropCurrent) <= 35) {
+        return null;
+    }
+
+    //  Don't cast if there is no creep point set for this player.
+    //p = AIGetBestCreepSpot(player, aiUnit, 36);
+    //if (p == null) {
+    //    return null;
+    //}
+
+    i = 0;
+    activeTumors = AIFindUnits(player, c_ZB_CreepTumor, UnitGetPosition(aiUnit), 9999, 0);
+    currentNumberOfTumors = 0;
+    for (; i <= UnitGroupCount(activeTumors, c_unitCountAll); i = i + 1) {
+        currentNumberOfTumors = currentNumberOfTumors + 1;
+    }
+
+    if (currentNumberOfTumors > 10) {
+        return null;
+    }
+
+    OrderSetTargetPlacement(ord, UnitGetPosition(aiUnit), aiUnit, c_ZB_CreepTumor);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    return ord;
+}
+
+//--------------------------------------------------------------------------------------------------
+void NG_AIThinkQueen(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    unit heal;
+    marker mark;
+    marker mark2;
+    unit unit1;
+    int i = 1;
+
+    mark2 = AIMarker(aiUnit, c_MK_SpawnBroodlings);
+    ord = NG_SpawnLarva(player, aiUnit, mark2);
+    if (ord != null) {
+//        UnitIssueOrder(aiUnit,ord,c_orderQueueAddToFront);
+        AICast(aiUnit, ord, mark2, c_castHold);
+        return;
+    }
+    mark = AIMarker(aiUnit, c_MK_Transfusion);
+    ord = NG_Transfusion(player, aiUnit, mark);
+    if (ord != null) {
+//        UnitIssueOrder(aiUnit,ord,c_orderQueueAddToFront);
+        AICast(aiUnit, ord, mark, c_castHold);
+        return;
+    }
+    ord = NG_CreepTumor(player, aiUnit);
+    if (ord != null) {
+        AICast(aiUnit, ord, c_noMarker, c_castHold);
+//        UnitIssueOrder(aiUnit,ord,c_orderQueueAddToFront);
+        return;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** CREEP TUMOR ***
+//--------------------------------------------------------------------------------------------------
+void NG_AIThinkCreepTumor(int player, unit aiUnit, unitgroup scanGroup) {
+    bool showDebugMessages;
+    order ord;
+    point p;
+    point target;
+
+    point bestPointAtm;
+
+    unitgroup otherTumors;
+    unitgroup activeTumors;
+    unitgroup minerals;
+
+    fixed startAngle;
+    fixed currentAngle;
+    int distance;
+
+    int angleModificator;
+
+    int i;
+
+    int currentNumberOfTumors;
+    int smallestNumberOfTumors;
+
+    unit debugUnit;
+
+    showDebugMessages = false;
+
+    ord = AICreateOrder(player, c_AB_CreepTumorBuild, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return;
+    }
+
+    if (showDebugMessages) {
+        for (; i < UnitGroupCount(scanGroup, 0); i = i + 1) {
+            debugUnit = UnitGroupUnit(scanGroup, i);
+            DebugAI("Found Unit:");
+            DebugAI(UnitGetType(debugUnit));
+        }
+    }
+
+    //If there are enmies around don't spread
+    if (UnitGroupCount(scanGroup, 0) > 0) {
+        return;
+    }
+
+    distance = 9;
+    smallestNumberOfTumors = 99;
+    angleModificator = 10;
+
+    // Need a function to get a purposefull target
+    target = NG_BestAttackPoint(player);
+//    target = CameraGetTarget(3);
+
+    if (AIIsCampaign(player)) {
+        return;
+    }
+
+    //  Only cast if idle.
+    if (UnitOrder(aiUnit, 0) != null) {
+        return;
+    }
+
+    if (showDebugMessages) {
+        DebugAI("Looking for Point...");
+    }
+
+    startAngle = AngleBetweenPoints(UnitGetPosition(aiUnit), target);
+    currentAngle = startAngle;
+
+    while (currentAngle < startAngle + 360) {
+        p = PointWithOffsetPolar(UnitGetPosition(aiUnit), 9, currentAngle);
+
+        otherTumors = AIFindUnits(player, c_ZB_CreepTumorBurrowed, p, 5, 0);
+        activeTumors = AIFindUnits(player, c_ZB_CreepTumor, p, 5, 0);
+        minerals = AIFindUnits(0, c_NU_Minerals, p, 8, 0);
+        UnitGroupAddUnitGroup(minerals, AIFindUnits(0, c_NU_HighYieldMinerals, p, 8, 0));
+
+        UnitGroupAddUnitGroup(otherTumors, activeTumors);
+
+        i = 1;
+        currentNumberOfTumors = 0;
+
+        for (; i <= UnitGroupCount(otherTumors, c_unitCountAll); i = i + 1) {
+            currentNumberOfTumors = currentNumberOfTumors + 1;
+        }
+
+        if (!UnitGroupCount(minerals, 0) > 0) {
+            OrderSetTargetPlacement(ord, p, aiUnit, c_ZB_CreepTumor);
+            if (UnitOrderIsValid(aiUnit, ord) && CreepIsPresent(p)) {
+                if (currentNumberOfTumors < smallestNumberOfTumors) {
+                    smallestNumberOfTumors = currentNumberOfTumors;
+                    bestPointAtm = p;
+                }
+            }
+        }
+
+        if (angleModificator < 0) {
+            angleModificator = angleModificator * -1;
+            angleModificator = angleModificator + 10;
+            currentAngle = startAngle + angleModificator;
+        } else {
+            angleModificator = angleModificator * -1;
+            currentAngle = startAngle + angleModificator;
+        }
+
+    }
+
+    OrderSetTargetPlacement(ord, bestPointAtm, aiUnit, c_ZB_CreepTumor);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return;
+    }
+
+    AICast(aiUnit, ord, c_noMarker, c_castRetreat);
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** Roach ***
+//--------------------------------------------------------------------------------------------------
+
+void NG_AIThinkRoach(int player, unit aiUnit, unitgroup scanGroup) {
+    //DebugAI("Ich bin eine Schabe Oo_oO");
+    //Your Logic goes here :D
+
+    //NG_MS_ThinkTests(player,aiUnit,scanGroup);
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** Viper ***
+//--------------------------------------------------------------------------------------------------
+
+//order OcularParasite (int player, unit aiUnit, unitgroup scanGroup) {
+//    // always try to cast it on ourself
+//    order ord;
+//
+//    ord = AICreateOrder(player, c_AB_ViperOcularParasite, 0);
+//    if (!UnitOrderIsValid(aiUnit, ord)) {
+//        return null;
+//    }
+//
+//    OrderSetTargetUnit(ord, aiUnit);
+//    if (!UnitOrderIsValid(aiUnit, ord)) {
+//        return null;
+//    }
+//
+//    return ord;
+//}
+
+order NG_BlindingCloud(int player, unit aiUnit, unitgroup scanGroup) {
+    // target a clump of ranged ground units
+    order ord;
+    aifilter filter;
+    unitgroup rangedGroup;
+    point loc;
+
+    ord = AICreateOrder(player, c_AB_ViperBlindingCloud, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    filter = AIFilter(player);
+    AISetFilterMelee(filter, c_onlyRanged);
+    AISetFilterPlane(filter, c_planeGround);
+    AISetFilterBehaviorCount(filter, c_noBehaviorMin, c_noBehaviorMax, c_BF_ViperCloudBuff);
+    rangedGroup = AIGetFilterGroup(filter, scanGroup);
+
+    loc = AIBestTargetPoint(AIEffectGroup(player, c_EF_ViperCloudSearch, rangedGroup), 5, // min hits
+            10, // damage base
+            4.5, // min score
+            AIEffectFixed(player, c_EF_ViperCloudSearch, c_fieldAreaRadius0), UnitGetPosition(aiUnit), AIAbilityFixed(player, c_AB_ViperBlindingCloud, c_fieldRange0) + 3, c_unitAttributeNone);
+    if (loc == null) {
+        return null;
+    }
+
+    OrderSetTargetPoint(ord, loc);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    return ord;
+}
+
+order NG_Abduct(int player, unit aiUnit, unitgroup scanGroup, marker mark) {
+    // cast abduct on massive units and siege targets
+    order ord;
+    unitgroup filterGroup;
+    unit unitToCheck;
+    int scanCount;
+    point aiUnitPosition;
+    fixed dist;
+
+    ord = AICreateOrder(player, c_AB_ViperAbduct, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    aiUnitPosition = UnitGetPosition(aiUnit);
+    filterGroup = UnitGroupEmpty();
+    scanCount = UnitGroupCount(scanGroup, c_unitCountAll);
+    while (scanCount > 0) {
+        unitToCheck = UnitGroupUnit(scanGroup, scanCount);
+        scanCount = scanCount - 1;
+
+        if (UnitMarkerCount(unitToCheck, mark) > 0) {
+            continue;  // already yoinking this
+        }
+
+        dist = DistanceBetweenPoints(aiUnitPosition, UnitGetPosition(unitToCheck));
+        if (dist < 8.0) {
+            continue;   // already close enough, no reason to yoink
+        }
+
+        if (UnitTypeTestAttribute(UnitGetType(unitToCheck), c_unitAttributeHeroic) == true) {
+            UnitGroupAdd(filterGroup, unitToCheck);
+        } else if (UnitTypeTestAttribute(UnitGetType(unitToCheck), c_unitAttributeMassive) == true) {
+            UnitGroupAdd(filterGroup, unitToCheck);
+        } else if (UnitGetType(unitToCheck) == c_TU_SiegeTank || UnitGetType(unitToCheck) == c_TU_SiegeTankSieged) {
+            UnitGroupAdd(filterGroup, unitToCheck);
+        }
+    }
+
+    //  Return valid target order
+    //
+    return AIUnitGroupGetValidOrder(filterGroup, ord, aiUnit, c_forwards);
+}
+
+order NG_ParasiticBomb(int player, unit aiUnit, unitgroup scanGroup, marker mark) {
+    // target a clump of air units
+    order ord;
+    aifilter filter;
+    unitgroup airGroup;
+    point loc;
+    unit target;
+
+    // Check UnitAbilityExists to prevent warnings in liberty/swarm
+    if (!UnitAbilityExists(aiUnit, c_AB_ParasiticBomb)) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_ParasiticBomb, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    filter = AIFilter(player);
+    AISetFilterPlane(filter, c_planeAir);
+    AISetFilterBehaviorCount(filter, c_noBehaviorMin, c_noBehaviorMax, c_BF_ViperParasiticBomb);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, mark);
+    airGroup = AIGetFilterGroup(filter, scanGroup);
+
+    loc = AIBestTargetPoint(airGroup, 1, // min hits
+            50, // damage base
+            0.5, // min score
+            AIEffectFixed(player, c_EF_ParasticBombArea, c_fieldAreaRadius0), UnitGetPosition(aiUnit), AIAbilityFixed(player, c_AB_ParasiticBomb, c_fieldRange0) + 3, c_unitAttributeNone);
+    if (loc == null) {
+        return null;
+    }
+
+    target = UnitGroupClosestToPoint(airGroup, loc);
+    OrderSetTargetUnit(ord, target);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    return ord;
+}
+
+//--------------------------------------------------------------------------------------------------
+void NG_AIThinkViper(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    marker mark;
+
+    //ord = Consume(player, aiUnit, scanGroup);
+    //if (ord != null) {
+    //    AICast(aiUnit, ord, c_noMarker, c_castHold);
+    //    return;
+    //}
+
+    ord = NG_BlindingCloud(player, aiUnit, scanGroup);
+    if (ord != null) {
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        //AICast(aiUnit, ord, c_noMarker, c_castHold);
+        return;
+    }
+
+    mark = AIMarker(aiUnit, c_MK_ViperAbduct);
+    ord = NG_Abduct(player, aiUnit, scanGroup, mark);
+    if (ord != null) {
+        //AICast(aiUnit, ord, mark, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    mark = AIMarker(aiUnit, c_MK_ViperParasiticBomb);
+    ord = NG_ParasiticBomb(player, aiUnit, scanGroup, mark);
+    if (ord != null) {
+//        AICast(aiUnit, ord, mark, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** Ultralisk ***
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+order NG_BurrowCharge(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    order curOrder;
+    unit targetUnit;
+    region damageRegion;
+    unitgroup enemiesInRegion;
+    fixed distToTarget;
+
+    // Check UnitAbilityExists to prevent warnings in liberty
+    if (!UnitAbilityExists(aiUnit, c_AB_UltraliskBurrowCharge)) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_UltraliskBurrowCharge, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    curOrder = UnitOrder(aiUnit, 0);
+    if (curOrder == null || !AIIsAttackOrder(curOrder)) {
+        return null;  // doing something other than attacking
+    }
+    targetUnit = OrderGetTargetUnit(curOrder);
+    if (targetUnit == null) {
+        // only want to charge units we're attacking anyway (since other wise
+        //   we may charge something and then run back to our original target)
+        return null;
+    }
+
+    OrderSetTargetUnit(ord, targetUnit);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    distToTarget = DistanceBetweenPoints(UnitGetPosition(aiUnit), UnitGetPosition(targetUnit));
+    if (distToTarget < 3.0) {
+        // don't bother to charge, we're already basically there
+        return null;
+    }
+
+    if (distToTarget < 7.0) {
+        // unless near max range (> 7.0), make sure we'll hit several targets
+        damageRegion = RegionCircle(UnitGetPosition(targetUnit), 2.0);
+        enemiesInRegion = UnitGroupFilterRegion(scanGroup, damageRegion, 0);
+        if (UnitGroupCount(enemiesInRegion, c_unitCountAll) < 3) {
+            return null;  // too few enemies
+        }
+    }
+
+    return ord;
+}
+
+//--------------------------------------------------------------------------------------------------
+void NG_AIThinkUltralisk(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+
+    // burrow
+    if (AIEvalTacticalData(aiUnit, null)) {
+        return;
+    }
+    ord = NG_BurrowCharge(player, aiUnit, scanGroup);
+    if (ord != null) {
+//        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** INFESTOR ***
+//--------------------------------------------------------------------------------------------------
+
+//  Minimum vitality of a unit in order to mind control it.
+const fixed c_NG_neuralParasiteMinVitality = 175;
+const int c_NG_infestedTerransCooldown = c_tactTimerFirst;
+const int c_NG_fungalGrowthCooldown = c_tactTimerSecond;
+
+//---------------------------------------------------------------------------------------------
+order NG_NeuralParasite(int player, unit aiUnit, unitgroup scanGroup, marker mark, marker gameMark, bool lowVitality) {
+    order ord;
+    aifilter filter;
+    unit target;
+    unitgroup targetGroup;
+    //  vars related to nearby enemies.
+    aifilter groundAirFilter;
+    unitgroup threatGroup;
+    int enemyGroundCount;
+    int enemyAirCount;
+
+    if (AIIsCampaign(player)) {
+        return null;
+    }
+
+    //  Create order and check validity
+    //
+    ord = AICreateOrder(player, c_AB_NeuralParasite, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    //  Scan for enemy air and ground units
+    //
+    enemyGroundCount = 0;
+    enemyAirCount = 0;
+
+    groundAirFilter = AIFilter(player);
+    AISetFilterAlliance(groundAirFilter, c_playerGroupEnemy);
+    AISetFilterPlane(groundAirFilter, c_planeGround);
+    enemyGroundCount = UnitGroupCount(AIGetFilterGroup(groundAirFilter, scanGroup), c_unitCountAlive);
+
+    AISetFilterPlane(groundAirFilter, c_planeAir);
+    enemyAirCount = UnitGroupCount(AIGetFilterGroup(groundAirFilter, scanGroup), c_unitCountAlive);
+
+    //  Apply filters to enemies
+    //
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupEnemy);
+    AISetFilterBits(filter, UnitFilterStr(AIAbilityStr(player, c_AB_NeuralParasite, c_fieldTargetFiltersAB)));
+    AISetFilterRange(filter, aiUnit, AIAbilityFixed(player, c_AB_NeuralParasite, c_fieldRange0) + 1);
+    AISetFilterLife(filter, c_NG_neuralParasiteMinVitality, c_noMax);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, mark);
+    AISetFilterCanAttackEnemy(filter, enemyGroundCount, enemyAirCount);
+    targetGroup = AIGetFilterGroup(filter, scanGroup);
+    if (targetGroup == null) {
+        return null;
+    }
+
+    //  Since it's a missile, we also have to check the game-side marker
+    //
+    filter = AIFilter(player);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, gameMark);
+    targetGroup = AIGetFilterGroup(filter, targetGroup);
+    if (targetGroup == null) {
+        return null;
+    }
+
+    //  Return valid target
+    //
+    return AIUnitGroupGetValidOrder(targetGroup, ord, aiUnit, c_forwards);
+}
+
+order NG_FungalGrowth(int player, unit aiUnit, marker mark, marker gameMark, unitgroup scanGroup) {
+    order ord;
+    fixed energy;
+    aifilter filter;
+    bool groundAllies;
+    unitgroup enemyGroup;
+    point loc;
+
+    if (!AITactCooldownAllow(aiUnit, c_NG_fungalGrowthCooldown)) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_FungalGrowth, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    //  Cast on strongest enemy that can attack our allies
+    filter = AIFilter(player);
+    AISetFilterBehaviorCount(filter, c_noBehaviorMin, c_noBehaviorMax, c_BF_FungalGrowth);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, gameMark);
+    enemyGroup = AIGetFilterGroup(filter, scanGroup);
+
+    loc = AIBestTargetPoint(AIEffectGroup(player, c_EF_FungalGrowthSearch, enemyGroup), 5, // min hits
+            30, // damage base
+            3.5, // min score
+            AIEffectFixed(player, c_EF_FungalGrowthSearch, c_fieldAreaRadius0), UnitGetPosition(aiUnit), AIUnitFixed(player, c_ZU_Infestor, c_fieldSightRange), c_unitAttributeNone);
+    if (loc == null) {
+        return null;
+    }
+    OrderSetTargetPoint(ord, loc);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+    return ord;
+}
+
+//---------------------------------------------------------------------------------------------
+fixed NG_MinToCastInfestedTerrans(int player) {
+    return AIAbilityFixed(player, c_AB_NeuralParasite, c_fieldEnergyCost) + AIAbilityFixed(player, c_AB_InfestedTerrans, c_fieldEnergyCost);
+}
+
+order NG_BurrowInfestor(int player, unit aiUnit, unitgroup scanGroup, bool lowVitality) {
+    aifilter detectorFilter;
+    unitgroup detectors;
+    order ord;
+
+    ord = AICreateOrder(player, "BurrowInfestorDown", 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    detectorFilter = AIFilter(player);
+
+    AISetFilterBehaviorCount(detectorFilter, 1, c_noBehaviorMax, "Detector11");
+
+    detectors = AIGetFilterGroup(detectorFilter, scanGroup);
+
+    if (lowVitality && UnitGroupCount(detectors, 0) == 0) {
+        return ord;
+    }
+
+    return null;
+}
+
+order NG_InfestedTerrans(int player, unit aiUnit, unitgroup scanGroup, bool lowVitality) {
+    order ord;
+    int energy;
+    aifilter filter;
+    point castPoint;
+    unit target;
+    unitgroup targetGroup;
+    int i;
+    bool hasTanks;
+    unitgroup tanks;
+    marker tankMark;
+
+    ord = AICreateOrder(player, c_AB_InfestedTerrans, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    hasTanks = false;
+    i = 1;
+
+    tanks = UnitGroupCopy(scanGroup);
+
+    for (; i <= UnitGroupCount(scanGroup, 0); i += 1) {
+        if (UnitGetType(UnitGroupUnit(scanGroup, i)) == c_TU_SiegeTankSieged) {
+            hasTanks = true;
+        } else {
+            UnitGroupRemove(tanks, UnitGroupUnit(scanGroup, i));
+        }
+    }
+
+//    if (!lowVitality) {
+//        //  Reserve 50 leftover mana for neural parasite
+//        energy = UnitGetPropertyInt(aiUnit, c_unitPropEnergy, c_unitPropCurrent);
+//        if (energy < MinToCastInfestedTerrans(player) && !lowVitality) {
+//            return null;
+//        }
+//        if (UnitGroupCount(scanGroup, c_unitCountAll) < 4) {
+//            return null;
+//        }
+//    }
+
+    //  Cast on top of the weakest unit.
+    //
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupEnemy);
+
+    if (hasTanks) {
+        tankMark = AIMarker(aiUnit, "InfestedTerrans");
+        AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, tankMark);
+        targetGroup = AIGetFilterGroup(filter, tanks);
+    } else {
+        AISetFilterBits(filter, UnitFilterStr(AIWeaponStr(player, c_WE_InfestedTerran, c_fieldTargetFilters)));
+        AISetFilterRange(filter, aiUnit, AIAbilityFixed(player, c_AB_InfestedTerrans, c_fieldRange0) + 1);
+        AISetFilterLife(filter, c_noMin, c_noMax);
+        targetGroup = AIGetFilterGroup(filter, scanGroup);
+    }
+
+    //  Check for valid target
+    //
+
+    target = UnitGroupUnit(targetGroup, UnitGroupCount(targetGroup, c_unitCountAll));
+    if (target == null) {
+        return null;
+    }
+
+    castPoint = AIPlacementNearbyFindTest(player, UnitGetPosition(target), 5.0, c_ZU_InfestedTerranEgg);
+    if (castPoint == c_nullPoint) {
+        return null;
+    }
+
+    OrderSetTargetPoint(ord, castPoint);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    return ord;
+}
+
+//const int frenzyNormalMinVitality = 300;
+//const int frenzyUrgentMinVitality = 150;
+//
+////--------------------------------------------------------------------------------------------------
+//order Frenzy (int player, unit aiUnit, unitgroup scanGroup, marker mark, bool lowVitality) {
+//    order ord;
+//    unitgroup group;
+//    aifilter filter;
+//    int minVitality;
+//
+//    if (AIIsCampaign(player)) {
+//        return null;
+//    }
+//
+//    ord = AICreateOrder(player, c_AB_Frenzy, 0);
+//    if (!UnitOrderIsValid(aiUnit, ord)) {
+//        return null;
+//    }
+//
+//    group = AIFindUnits(player, null, UnitGetPosition(aiUnit),
+//                        AIAbilityFixed(player, c_AB_Frenzy, c_fieldRange0) + 1,
+//                        c_noMaxCount)
+//    ;
+//
+//    if (lowVitality) {
+//        minVitality = frenzyUrgentMinVitality;
+//    }
+//    else {
+//        minVitality = frenzyNormalMinVitality;
+//    }
+//
+//    filter = AIFilter(player);
+//    AISetFilterAlliance(filter, c_playerGroupAlly);
+//    AISetFilterLife(filter, minVitality, c_noMax);
+//    AISetFilterBehaviorCount(filter, c_noBehaviorMin, c_noBehaviorMax, c_BF_Frenzy);
+//    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, mark);
+//    AISetFilterInCombat(filter, c_onlyInCombat);
+//
+//    group = AIGetFilterGroup(filter, group);
+//    if (group == null) {
+//        return null;
+//    }
+//
+//    // fix to prevent us from cancelling our own neural parasite
+//    filter = AIFilter(player);
+//    AISetFilterBehaviorCount(filter, c_noBehaviorMin, c_noBehaviorMax, c_BF_NeuralParasite);
+//    group = AIGetFilterGroup(filter, group);
+//    if (group == null) {
+//        return null;
+//    }
+//
+//    return AIUnitGroupGetValidOrder(group, ord, aiUnit, c_forwards);
+//}
+
+//---------------------------------------------------------------------------------------------
+const int NG_infestorLowVitalityPercent = 60;
+
+void NG_AIThinkInfestor(int player, unit aiUnit, unitgroup scanGroup) {
+    //  **Infestor disease in TargetFindData.xml** Currently not in the game.
+    marker mark;
+    marker gameMark;
+    order ord;
+    abilcmd siphoncmd;
+    unitfilter f;
+    bool lowVitality;
+    fixed cooldown;
+    unitgroup tankTest;
+    aifilter tankFilter;
+    int i;
+    bool hasTanks;
+
+    // fungal growth
+    gameMark = AIMarker(aiUnit, c_MK_GameFungalGrowth);
+    mark = AIMarker(aiUnit, c_MK_FungalGrowth);
+    ord = NG_FungalGrowth(player, aiUnit, mark, gameMark, scanGroup);
+    if (ord != null) {
+//        AICastCooldown(aiUnit, ord, mark, c_castHold, c_fuyngalGrowthCooldown, cooldown);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    lowVitality = (UnitGetPropertyInt(aiUnit, c_unitPropVitalityPercent, c_unitPropCurrent) < NG_infestorLowVitalityPercent);
+
+    ord = NG_BurrowInfestor(player, aiUnit, scanGroup, lowVitality);
+    if (ord != null) {
+//        AICast(aiUnit, ord, mark, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    // neural parasite
+    mark = AIMarker(aiUnit, c_MK_NeuralParasite);
+    gameMark = AIMarker(aiUnit, c_MK_GameNeuralParasite);
+    ord = NG_NeuralParasite(player, aiUnit, scanGroup, mark, gameMark, lowVitality);
+    if (ord != null) {
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+//        AICast(aiUnit, ord, mark, c_castHold);
+        return;
+    }
+
+    // infested terrans
+    ord = NG_InfestedTerrans(player, aiUnit, scanGroup, lowVitality);
+    if (ord != null) {
+//        AICastCooldown(aiUnit, ord, AIMarker(aiUnit,"InfestedTerrans"), c_castRetreat, c_infestedTerransCooldown, cooldown);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    //
+    //// frenzy
+    //mark = AIMarker(aiUnit, c_MK_Frenzy);
+    //ord = Frenzy(player, aiUnit, scanGroup, mark, lowVitality);
+    //if (ord != null) {
+    //    AICast(aiUnit, ord, mark, c_castHold);
+    //    return;
+    //}
+}
+
+void NG_AIThinkInfestorBurrowed(int player, unit aiUnit, unitgroup scanGroup) {
+    //  **Infestor disease in TargetFindData.xml** Currently not in the game.
+    marker mark;
+    marker gameMark;
+    order ord;
+    abilcmd siphoncmd;
+    unitfilter f;
+    bool lowVitality;
+    fixed cooldown;
+    unitgroup tankTest;
+    aifilter tankFilter;
+    int i;
+    bool hasTanks;
+
+    lowVitality = (UnitGetPropertyInt(aiUnit, c_unitPropVitalityPercent, c_unitPropCurrent) < NG_infestorLowVitalityPercent);
+
+    // infested terrans
+    ord = NG_InfestedTerrans(player, aiUnit, scanGroup, lowVitality);
+    if (ord != null) {
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+//        AICast(aiUnit, ord, AIMarker(aiUnit,"InfestedTerrans"), c_castHold);
+        return;
+    }
+
+    if (UnitGroupCount(scanGroup, 0) == 0 && !lowVitality) {
+        UnitIssueOrder(aiUnit, AICreateOrder(player, "BurrowInfestorUp", 0), c_orderQueueAddToFront);
+//        AICast(aiUnit,AICreateOrder(player,"BurrowInfestorUp",0),c_noMarker,c_castHold);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** BANELING ***
+//--------------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------
+order NG_ToggleVolatileBurstBuilding(int player, unit aiUnit, unitgroup scanGroup, marker mark) {
+    order ord;
+
+    // Check UnitAbilityExists to prevent warnings in liberty
+    if (!UnitAbilityExists(aiUnit, c_AB_VolatileBurstBuilding)) {
+        return null;
+    }
+
+    // Simple logic, if we can turn off attacking buildings, then do so
+    //
+    ord = AICreateOrder(player, c_AB_VolatileBurstBuilding, 1);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    return ord;
+}
+
+//---------------------------------------------------------------------------------------------
+void NG_AIThinkBaneling(int player, unit aiUnit, unitgroup scanGroup) {
+    marker mark;
+    order ord;
+
+    // burrow
+    if (AIEvalTacticalData(aiUnit, null)) {
+        return;
+    }
+
+    // turn off automatically exploding on buildings
+    ord = NG_ToggleVolatileBurstBuilding(player, aiUnit, scanGroup, mark);
+    if (ord != null) {
+//        AICast(aiUnit, ord, mark, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    // attack building logic -- obsolete now that attack works for both, regular AI works fine
+    //mark = AIMarker(aiUnit, c_MK_SapStructure);
+    //ord = SapStructure(player, aiUnit, scanGroup, mark);
+    //if (ord != null) {
+    //    AICast(aiUnit, ord, mark, c_castHold);
+    //    return;
+    //}
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** OVERSEER ***
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+//const int c_minAlliesCanAttack = 3;
+
+//order AcidSpores (int player, unit aiUnit, unitgroup scanGroup) {
+//    order ord;
+//    aifilter filter;
+//    bool groundEnemies;
+//    bool airEnemies;
+//    region r;
+//    unitgroup allyGroup;
+//    int allyCount;
+//    point position;
+//
+//    ord = AICreateOrder(player, c_AB_AcidSpores, 0);
+//    if (!UnitOrderIsValid(aiUnit, ord)) {
+//        return null;
+//    }
+//
+//    DebugVarInt("const", c_planeAir);
+//
+//    position = UnitGetPosition(aiUnit);
+//    //  Only use it if we have some units that will be able to attack the enemy.
+//    groundEnemies = AINearbyPlaneTest(position, player, AIUnitFixed(player, c_ZU_Overseer, c_fieldSightRange), c_planeGround, c_unitAllianceEnemy);
+//    airEnemies = AINearbyPlaneTest(position, player, AIUnitFixed(player, c_ZU_Overseer, c_fieldSightRange), c_planeAir, c_unitAllianceEnemy);
+//
+//    //AIEffectFixed(player, c_EF_AcidSporesArea, c_fieldAreaRadius0)
+//    //UnitFilterStr(AIAbilityStr(player, c_AB_AcidSpores, c_fieldTargetFiltersAB)
+//    DebugVarBool("grnd", groundEnemies);
+//    DebugVarBool("air", airEnemies);
+//
+//    r = RegionCircle(UnitGetPosition(aiUnit), AIUnitFixed(player, c_ZU_Overseer, c_fieldSightRange));
+//    allyGroup = UnitGroupAlliance(player,
+//                                  c_unitAllianceAlly,
+//                                  r,
+//                                  null,
+//                                  c_noMaxCount)
+//                                  ;
+//
+//    AISetFilterCanAttackAlly(filter, groundEnemies, airEnemies);
+//    allyGroup = AIGetFilterGroup(filter, allyGroup);
+//    allyCount = UnitGroupCount(allyGroup, c_unitCountAll);
+//
+//    DebugVarInt("allyCount:", allyCount);
+//
+//    if (allyCount < c_minAlliesCanAttack) {
+//        return null;
+//    }
+//
+//    return null;
+//}
+
+//--------------------------------------------------------------------------------------------------
+//  Limit the number of enemies we check since AIPathCost could be expensive over
+//  too many units.
+const int c_NG_maxEnemyCount = 5;
+
+order NG_Changeling(int player, unit aiUnit, unitgroup scanGroup) {
+    int enemyPlayer = -1;
+    point here;
+    order ord;
+    point camPoint;
+    fixed camDistance;
+    fixed range;
+
+    ord = AICreateOrder(player, c_AB_Changeling, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    enemyPlayer = AIGetPlayerGroup(scanGroup);
+    if (enemyPlayer == -1) {
+        return null;
+    }
+
+    here = UnitGetPosition(aiUnit);
+
+    //  A good player should be able to tell when the enemy isn't paying attention
+    //  and then cast changeling.  To simulate this, the computer looks for an enemy
+    //  player's camera on hard and insanse.
+    //
+    if (AICampSkirDiffTest(player, c_campExpert, c_skirVeryHard)) {
+        camPoint = CameraGetTarget(enemyPlayer);
+        camDistance = DistanceBetweenPoints(camPoint, here);
+
+        if (camDistance < 20) {
+            return null;
+        }
+    }
+
+    range = AIUnitFixed(player, c_ZU_Overseer, c_fieldSightRange);
+
+    //  Check to see if we already have a changeling.
+    if (AINearbyUnits(player, c_ZU_Changeling, here, range, 1) || AINearbyUnits(player, c_ZU_ChangelingZealot, here, range, 1) || AINearbyUnits(player, c_ZU_ChangelingZergling, here, range, 1) || AINearbyUnits(player, c_ZU_ChangelingMarine, here, range, 1) || AINearbyUnits(player, c_ZU_ChangelingZerglingWings, here, range, 1)) {
+        return null;
+    }
+
+    //  Check to see if there are enough basic units around to follow.
+    if ((UnitGroupCount(AIFilterPathable(AIFindUnits(enemyPlayer, c_PU_Zealot, here, range, c_NG_maxEnemyCount), here), c_unitCountAlive) >= 2) || (UnitGroupCount(AIFilterPathable(AIFindUnits(enemyPlayer, c_ZU_Zergling, here, range, c_NG_maxEnemyCount), here), c_unitCountAlive) >= 2) || (UnitGroupCount(AIFilterPathable(AIFindUnits(enemyPlayer, c_TU_Marine, here, range, c_NG_maxEnemyCount), here), c_unitCountAlive) >= 2)) {
+        return ord;
+    }
+
+    return null;
+}
+
+//--------------------------------------------------------------------------------------------------
+bool NG_MakeChangeling(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    aifilter filter;
+    int enemyGroundCount;
+
+    if (AIIsCampaign(player)) {
+        // don't auto make changlings on campaign
+        return false;
+    }
+
+    //  If we already have a changeling order, ignore new orders so that
+    //  we don't cast again
+    if (UnitOrderHasAbil(aiUnit, c_AB_Changeling)) {
+        return false;
+    }
+
+    if (UnitGroupCount(scanGroup, c_unitCountAlive) == 0) {
+        return false;
+    }
+
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupEnemy);
+    AISetFilterPlane(filter, c_planeGround);
+    AISetFilterCanAttackAlly(filter, c_groundAlliesNearby, false);
+    enemyGroundCount = UnitGroupCount(AIGetFilterGroup(filter, scanGroup), c_unitCountAlive);
+
+    if (enemyGroundCount > 0) {
+        ord = NG_Changeling(player, aiUnit, scanGroup);
+        if (ord != null) {
+//            AICast(aiUnit, ord, c_noMarker, c_castRetreat);
+            UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+const int NG_contaminateNormalMinVitality = 120;
+const int NG_contaminateUrgentMinVitality = 40;
+
+order NG_Contaminate(int player, unit aiUnit, unitgroup scanGroup, marker mark) {
+    order ord;
+    unitgroup enemyGroup;
+    aifilter filter;
+
+    if (AIIsCampaign(player)) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_Contaminate, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupEnemy);
+    AISetFilterBehaviorCount(filter, c_noBehaviorMin, c_noBehaviorMax, c_BF_Contaminate);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, mark);
+    AISetFilterBits(filter, UnitFilterStr(AIAbilityStr(player, c_AB_Contaminate, c_fieldTargetFiltersAB)));
+
+    enemyGroup = AIGetFilterGroup(filter, scanGroup);
+    if (enemyGroup == null) {
+        return null;
+    }
+
+    enemyGroup = AIFilterProduction(enemyGroup, c_activeOnly);
+    if (enemyGroup == null) {
+        return null;
+    }
+
+    ord = AIUnitGroupGetValidOrder(enemyGroup, ord, aiUnit, c_forwards);
+    return ord;
+}
+
+//--------------------------------------------------------------------------------------------------
+void NG_AIThinkOverseer(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    marker mark;
+
+    if (NG_MakeChangeling(player, aiUnit, scanGroup)) {
+        return;
+    }
+
+    mark = AIMarker(aiUnit, c_MK_Contaminate);
+    ord = NG_Contaminate(player, aiUnit, scanGroup, mark);
+    if (ord != null) {
+//        AICast(aiUnit, ord, mark, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    //ord = AcidSpores(player, aiUnit, scanGroup);
+    //if (ord != null) {
+    //    AICast(aiUnit, ord, c_noMarker, c_castHold);
+    //    return;
+    //}
+
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** CORRUPTOR ***
+//--------------------------------------------------------------------------------------------------
+
+const int NG_corruptionNormalMinVitality = 120;
+const int NG_corruptionUrgentMinVitality = 40;
+const int NG_corruptorLowVitalityPercent = 30;
+
+order NG_Corruption(int player, unit aiUnit, unitgroup scanGroup, marker mark) {
+    order ord;
+    unitgroup enemyGroup;
+    aifilter filter;
+    bool lowVitality;
+    int minVitality;
+
+    ord = AICreateOrder(player, c_AB_Corruption, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    lowVitality = (UnitGetPropertyInt(aiUnit, c_unitPropVitalityPercent, c_unitPropCurrent) < NG_corruptorLowVitalityPercent);
+    if (lowVitality) {
+        minVitality = NG_corruptionUrgentMinVitality;
+    } else {
+        minVitality = NG_corruptionNormalMinVitality;
+    }
+
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupEnemy);
+    AISetFilterLife(filter, minVitality, c_noMax);
+    AISetFilterBehaviorCount(filter, c_noBehaviorMin, c_noBehaviorMax, c_BF_Corruption);
+    AISetFilterMarker(filter, c_noMarkersMin, c_noMarkersMax, mark);
+    AISetFilterBits(filter, UnitFilterStr(AIAbilityStr(player, c_AB_Corruption, c_fieldTargetFiltersAB)));
+
+    enemyGroup = AIGetFilterGroup(filter, scanGroup);
+    if (enemyGroup == null) {
+        return null;
+    }
+
+    ord = AIUnitGroupGetValidOrder(enemyGroup, ord, aiUnit, c_forwards);
+    return ord;
+}
+
+order NG_LeechResources(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    unitgroup enemyGroup;
+    aifilter filter;
+
+    // Check UnitAbilityExists to prevent warnings in liberty
+    if (!UnitAbilityExists(aiUnit, c_AB_LeechResources)) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_LeechResources, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    filter = AIFilter(player);
+    AISetFilterAlliance(filter, c_playerGroupEnemy);
+    AISetFilterBits(filter, UnitFilterStr(AIAbilityStr(player, c_AB_LeechResources, c_fieldTargetFiltersAB)));
+    enemyGroup = AIGetFilterGroup(filter, scanGroup);
+    if (enemyGroup == null) {
+        return null;
+    }
+
+    ord = AIUnitGroupGetValidOrder(enemyGroup, ord, aiUnit, c_forwards);
+    return ord;
+}
+
+order NG_CausticSpray(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    unitgroup enemyAirGroup;
+    unitgroup enemyGroundGroup;
+    wave curWave;
+
+    // Check UnitAbilityExists to prevent warnings in liberty/swarm
+    if (!UnitAbilityExists(aiUnit, c_AB_CausticSpray)) {
+        return null;
+    }
+
+    ord = AICreateOrder(player, c_AB_CausticSpray, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    enemyAirGroup = UnitGroupFilterPlane(scanGroup, c_planeAir, 0);
+    if (UnitGroupCount(enemyAirGroup, c_unitCountAlive) > 0) {
+        // attacking air is better than using caustic spray on ground
+        return null;
+    }
+
+    enemyGroundGroup = UnitGroupFilterPlane(scanGroup, c_planeGround, 0);
+    ord = AIUnitGroupGetValidOrder(enemyGroundGroup, ord, aiUnit, c_forwards);
+    return ord;
+}
+
+void NG_AIThinkCorruptor(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    marker mark;
+
+    if (AIIsCampaign(player)) {
+        if (AIPlayerDifficulty(player) < c_campAdvanced) {
+            return;
+        }
+    }
+
+    mark = AIMarker(aiUnit, c_MK_Corruption);
+    ord = NG_Corruption(player, aiUnit, scanGroup, mark);
+    if (ord != null) {
+//        AICast(aiUnit, ord, mark, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    ord = NG_LeechResources(player, aiUnit, scanGroup);
+    if (ord != null) {
+        //AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    ord = NG_CausticSpray(player, aiUnit, scanGroup);
+    if (ord != null) {
+        //AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** Crawler ***
+//--------------------------------------------------------------------------------------------------
+
+void NG_AIThinkCrawler(int player, unit aiUnit, unitgroup scanGroup) {
+    unitgroup dropOffs;
+    order ord;
+
+    if (AIIsCampaign(player)) {
+        return;
+    }
+
+    if (UnitGroupCount(scanGroup, c_unitCountAlive) > 0) {
+        return; // don't uproot if enemies are nearby, maybe filter this to enemies we can attack?
+    }
+
+    if (CreepIsPresent(UnitGetPosition(aiUnit))) {
+        return; // we're already on creep, no need to uproot
+    }
+
+    ord = AICreateOrder(player, c_AB_SpineCrawlerUproot, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        ord = AICreateOrder(player, c_AB_SporeCrawlerUproot, 0);
+        if (!UnitOrderIsValid(aiUnit, ord)) {
+            return;
+        }
+    }
+
+    dropOffs = AIGetBuildingGroup(player, c_buildingTypeTownHall);
+    if (UnitGroupCount(dropOffs, c_unitCountAlive) > 0) {
+//        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+    }
+}
+
+void NG_AIThinkCrawlerUprooted(int player, unit aiUnit, unitgroup scanGroup) {
+    unitgroup dropOffs;
+    unit bestDropOff;
+    order ord;
+
+    if (AIIsCampaign(player)) {
+        return;
+    }
+
+    if (CreepIsPresent(UnitGetPosition(aiUnit))) {
+        // made it to creep, try to root
+        ord = AICreateOrder(player, c_AB_SpineCrawlerRoot, 0);
+        if (!UnitOrderIsValid(aiUnit, ord)) {
+            ord = AICreateOrder(player, c_AB_SporeCrawlerRoot, 0);
+        }
+
+        OrderSetTargetPoint(ord, UnitGetPosition(aiUnit));
+        if (UnitOrderIsValid(aiUnit, ord)) {
+            // TODO find nearby valid to root position
+//            AICast(aiUnit, ord, c_noMarker, c_castHold);
+            UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+            return;
+        }
+    }
+
+    if (UnitOrder(aiUnit, 0) != null) {
+        return;
+    }
+
+    // if we're idle, head toward closest town center
+    dropOffs = AIGetBuildingGroup(player, c_buildingTypeTownHall);
+    bestDropOff = AIGetClosestUnit(aiUnit, dropOffs, true);
+    if (bestDropOff != c_nullUnit) {
+        // move to it's position
+        ord = AICreateOrder(player, c_AB_Move, 0);
+        OrderSetTargetPoint(ord, UnitGetPosition(bestDropOff));
+        if (UnitOrderIsValid(aiUnit, ord)) {
+//            AICast(aiUnit, ord, c_noMarker, c_castHold);
+            UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+            return;
+        }
+    }
+
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** CHANGELING ***
+//--------------------------------------------------------------------------------------------------
+
+void NG_AIThinkChangelingUnit(int player, unit aiUnit, unitgroup scanGroup, string followUnit) {
+    unitgroup followGroup;
+    order ord;
+    int enemyPlayer;
+    region r;
+    unitgroup allyGroup;
+    unitgroup enemyGroup;
+
+    if (AIIsFollowingUnit(aiUnit, followUnit)) {
+        return;
+    }
+
+    //  Create a move order, and check validity
+    ord = AICreateOrder(player, c_AB_Follow, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return;
+    }
+
+    r = RegionCircle(UnitGetPosition(aiUnit), AIUnitFixed(player, c_ZU_Overseer, c_fieldSightRange));
+    enemyGroup = UnitGroupAlliance(player, c_unitAllianceEnemy, r, null, c_noMaxCount);
+
+    enemyPlayer = AIGetPlayerGroup(enemyGroup);
+    if (enemyPlayer == -1) {
+        return;
+    }
+
+    //  By default, follow the provided unit type.
+    followGroup = AIFindUnits(enemyPlayer, followUnit, UnitGetPosition(aiUnit), AIUnitFixed(player, c_ZU_Overseer, c_fieldSightRange), c_noMaxCount);
+    ord = AIUnitGroupGetValidOrder(followGroup, ord, aiUnit, c_forwards);
+
+    if (ord != null) {
+//        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    //  Otherwise, find any enemy to follow.
+    ord = AICreateOrder(player, c_AB_Follow, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return;
+    }
+
+    ord = AIUnitGroupGetValidOrder(scanGroup, ord, aiUnit, c_forwards);
+    if (ord != null) {
+//        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+void NG_AIThinkChangelingZergling(int player, unit aiUnit, unitgroup scanGroup) {
+    NG_AIThinkChangelingUnit(player, aiUnit, scanGroup, c_ZU_Zergling);
+}
+
+void NG_AIThinkChangelingMarine(int player, unit aiUnit, unitgroup scanGroup) {
+    NG_AIThinkChangelingUnit(player, aiUnit, scanGroup, c_TU_Marine);
+}
+
+void NG_AIThinkChangelingZealot(int player, unit aiUnit, unitgroup scanGroup) {
+    NG_AIThinkChangelingUnit(player, aiUnit, scanGroup, c_PU_Zealot);
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** RAVAGER ***
+//--------------------------------------------------------------------------------------------------
+order NG_RavagerCorrosiveBile(int player, unit aiUnit, unitgroup scanGroup) {
+    // Low cooldown ability that is somewhat easy for opponent to dodge
+
+    // On high difficulties target immobile units first. After that, just cast it at random ground
+    // enemy units and hopefully the unpredictability / scattered pattern makes it harder to dodge?
+    order ord;
+    unitgroup immobileGroup;
+    unit unitToCheck;
+    int count;
+    int immCount;
+    bool isFarm;
+
+    ord = AICreateOrder(player, c_AB_CorrosiveBile, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    count = UnitGroupCount(scanGroup, c_unitCountAll);
+    if (count == 0) {
+        return null;
+    }
+
+    //find threatening immobile units & food supplying units  (sieged tanks, liberatorAG, static defense, pylons, etc)
+    if (true) { // target immobile logic not used on campaign
+        immobileGroup = UnitGroupEmpty();
+
+        immCount = UnitGroupCount(scanGroup, c_unitCountAll);
+        while (immCount > 0) {
+            unitToCheck = UnitGroupUnit(scanGroup, immCount);
+            immCount = immCount - 1;
+
+            if (UnitTestState(unitToCheck, c_unitStateMoveSuppressed) == false) {
+                // target can move, ignore it
+                continue;
+            }
+            if (UnitTypeTestAttribute(UnitGetType(unitToCheck), c_unitAttributeStructure) == true) {
+                // don't target structures without weapons or is a farm  (providing food without a lot of health)
+                isFarm = (UnitGetPropertyInt(unitToCheck, c_unitPropSuppliesMade, c_unitPropCurrent) > 0) && (UnitGetPropertyInt(unitToCheck, c_unitPropLife, c_unitPropCurrent) <= 400);
+
+                if ((UnitWeaponCount(unitToCheck) == 0) && (isFarm == false)) {
+                    continue;
+                }
+            }
+
+            UnitGroupAdd(immobileGroup, unitToCheck);
+        }
+        immCount = UnitGroupCount(immobileGroup, c_unitCountAll);
+        if (immCount > 0) {
+            // randomly pick a threatening immobile unit
+            OrderSetTargetUnit(ord, UnitGroupUnit(immobileGroup, RandomInt(1, immCount)));
+            if (UnitOrderIsValid(aiUnit, ord)) {
+                return ord;
+            }
+        }
+    }
+
+    // else just try any random target
+    OrderSetTargetUnit(ord, UnitGroupUnit(scanGroup, RandomInt(1, count)));
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        ord = AIUnitGroupGetValidOrder(scanGroup, ord, aiUnit, c_forwards);
+    }
+    return ord;
+}
+
+//---------------------------------------------------------------------------------------------
+void NG_AIThinkRavager(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+
+    if (AIEvalTacticalData(aiUnit, null)) {
+        return;
+    }
+
+    ord = NG_RavagerCorrosiveBile(player, aiUnit, scanGroup);
+    if (ord != null) {
+//        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+//  *** SWARMHOSTMP ***
+//--------------------------------------------------------------------------------------------------
+order NG_SwarmHostSpawnLocust(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    unitgroup targetGroup;
+    int count;
+
+    ord = AICreateOrder(player, c_AB_SpawnLocustsTargeted, 0);
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        return null;
+    }
+
+    // locusts can only attack ground
+    targetGroup = UnitGroupFilterPlane(scanGroup, c_planeGround, 0);
+    count = UnitGroupCount(targetGroup, c_unitCountAll);
+    if (count == 0) {
+        return null;
+    }
+
+    // try a random target first
+    OrderSetTargetUnit(ord, UnitGroupUnit(targetGroup, RandomInt(1, count)));
+    if (!UnitOrderIsValid(aiUnit, ord)) {
+        ord = AIUnitGroupGetValidOrder(targetGroup, ord, aiUnit, c_forwards);
+    }
+    return ord;
+}
+
+//---------------------------------------------------------------------------------------------
+void NG_AIThinkSwarmHostMP(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+
+    if (AIEvalTacticalData(aiUnit, null)) {
+        return;
+    }
+
+    ord = NG_SwarmHostSpawnLocust(player, aiUnit, scanGroup);
+    if (ord != null) {
+//        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+        return;
+    }
+}
+//--------------------------------------------------------------------------------------------------
+//  NG_AIThink
+//--------------------------------------------------------------------------------------------------
+void NG_AIThinkDrone(int player, unit aiUnit, unitgroup scanGroup) {
+
+}
+void NG_AIThinkOverlord(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    point p;
+    if (NG_PlayerIsHappy(player)&&FixedToInt(AIGetTime()) % 10 == 0) {  //If that eats performance, just delete it :P
+        libNtve_gf_PlayAnimation(libNtve_gf_MainActorofUnit(aiUnit), c_animNameDefault, "Dance", 0, c_animTimeDefault);
+    }
+    //DebugAI("Overlord Health at "+FixedToString(UnitGetPropertyFixed(aiUnit, c_unitPropLifePercent, c_unitPropCurrent),4));
+    //DebugAI("Overlord Test. NGAIThinkZerg.galaxy near line 1644");
+    if (UnitGetPropertyFixed(aiUnit, c_unitPropLifePercent, c_unitPropCurrent) < 99 && UnitGroupCount(scanGroup, c_unitCountAll) > 0) {
+
+        ord = AICreateOrder(player, c_AB_Move, 0);
+        OrderSetTargetPoint(ord, PlayerStartLocation(player));
+        UnitIssueOrder(aiUnit, ord, c_orderQueueReplace);
+
+        return;
+    }
+    if (UnitOrderCount(aiUnit) == 0) {
+        //Anim dance
+        if (NG_PlayerIsHappy(player)) {
+            libNtve_gf_PlayAnimation(libNtve_gf_MainActorofUnit(aiUnit), c_animNameDefault, "Dance", 0, c_animTimeDefault);
+        }
+        p = NG_GetOverlordDestination(player);
+
+        ord = AICreateOrder(player, c_AB_Move, 0);
+
+        if (p != null) {
+            OrderSetTargetPoint(ord, p);
+            //DebugAI("Overlord Sent");
+        } else {
+            OrderSetTargetPoint(ord, PlayerStartLocation(player));
+        }
+
+        UnitIssueOrder(aiUnit, ord, c_orderQueueAddToFront);
+    }
+}
+void NG_AIThinkHydralisk(int player, unit aiUnit, unitgroup scanGrou) {
+
+}
+void NG_AIThinkMutalisk(int player, unit aiUnit, unitgroup scanGrou) {
+
+}
+void NG_AIThinkBroodLord(int player, unit aiUnit, unitgroup scanGrou) {
+
+}
+void NG_AIThinkLurker(int player, unit aiUnit, unitgroup scanGrou) {
+
+}
+void NG_AIThinkZergling(int player, unit aiUnit, unitgroup scanGrou) {
+
+}
+//We iterate through each unit to call AIThink
+void NG_AIThinkZergUnit(int player, unit u) {
+    unitgroup scanGroup;
+    int unitSightRange;
+    region scanRegion;
+
+    unitSightRange = AIUnitInt(player, UnitGetType(u), c_fieldSightRange);
+    scanRegion = RegionCircle(UnitGetPosition(u), unitSightRange);
+    scanGroup = UnitGroupAlliance(player, c_unitAllianceEnemy, scanRegion, UnitFilterStr("Visible;Missile"), 0);
+
+    if (UnitGetType(u) == c_ZU_Drone) {
+        NG_AIThinkDrone(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZB_CreepTumorBurrowed) {
+        NG_AIThinkCreepTumor(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Overlord) {
+        NG_AIThinkOverlord(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Zergling) {
+        NG_AIThinkZergling(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Queen) {
+        NG_AIThinkQueen(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Hydralisk) {
+        NG_AIThinkHydralisk(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Baneling) {
+        NG_AIThinkBaneling(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Overseer) {
+        NG_AIThinkOverseer(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Roach) {
+        NG_AIThinkRoach(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Infestor) {
+        NG_AIThinkInfestor(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == "InfestorBurrowed") {
+        NG_AIThinkInfestorBurrowed(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Mutalisk) {
+        NG_AIThinkMutalisk(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Corruptor) {
+        NG_AIThinkCorruptor(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Ultralisk) {
+        NG_AIThinkUltralisk(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_BroodLord) {
+        NG_AIThinkBroodLord(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_SwarmHost) {
+        NG_AIThinkSwarmHostMP(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Viper) {
+        NG_AIThinkViper(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Ravager) {
+        NG_AIThinkRavager(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_Lurker) {
+        NG_AIThinkLurker(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZB_SpineCrawler || UnitGetType(u) == c_ZB_SporeCrawler) {
+        NG_AIThinkCrawler(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZB_SpineCrawlerUp || UnitGetType(u) == c_ZB_SporeCrawlerUp) {
+        NG_AIThinkCrawlerUprooted(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_ChangelingMarine || UnitGetType(u) == c_ZU_ChangelingMarineShield) // not sure if its correct
+            {
+        NG_AIThinkChangelingMarine(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_ChangelingZealot) {
+        NG_AIThinkChangelingZealot(player, u, scanGroup);
+    }
+    if (UnitGetType(u) == c_ZU_ChangelingZergling || UnitGetType(u) == c_ZU_ChangelingZerglingWings) {
+        NG_AIThinkChangelingZergling(player, u, scanGroup);
+    }
+}
+// NG_AIThink for Zerg units (could be a problem, because you can control with zerg units from other races)
+void NG_AIThinkZerg(int player) {
+    int i;
+    unitgroup ourUnits;
+
+    ourUnits = UnitGroup(null, player, RegionEntireMap(), null, 0);
+    for (i = 1; i <= UnitGroupCount(ourUnits, c_unitCountAll); i += 1) {
+        NG_AIThinkZergUnit(player, UnitGroupUnit(ourUnits, i));
+    }
+}

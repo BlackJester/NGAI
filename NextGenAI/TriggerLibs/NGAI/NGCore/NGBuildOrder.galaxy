@@ -1,0 +1,1248 @@
+const int NG_BuildStatus_NotPossible = 0;
+const int NG_BuildStatus_Possible = 1;
+const int NG_BuildStatus_AddedToStock = 4;
+const int NG_BuildStatus_UnderConstruction = 2;
+const int NG_BuildStatus_Done = 3;
+const int NG_HPQ_MaxStockPositions = 20;
+
+const int NG_Test_Clearframe = 101;
+const int NG_AutoExpandMaxMineralFields = 30;
+const string NG_Expand = "NG_Expand";
+const string NG_SetImportance = "NG_SetImportance";
+const string NG_SetAllinChance = "NG_SetAllinChance";
+const string NG_BO_SetAutoExpand = "NG_SetAutoExpand";
+const string NG_BO_SetAutoWorkers = "NG_SetAutoWorkers";
+const string NG_BO_SetAutoSupply = "NG_SetAutoSupply";
+const string NG_BO_SetAggro = "NG_SetAggro";
+const string NG_BO_SendScout = "NG_SendScout";
+const string NG_BO_ProxyPylon = "NG_ProxyPylon";
+const string NG_BO_WarpPrefix = "NG_Warp";
+const string NG_BO_WarpZealot = "NG_Warp" + c_PU_Zealot;
+const string NG_BO_WarpStalker = "NG_Warp" + c_PU_Stalker;
+const string NG_BO_WarpSentry = "NG_Warp" + c_PU_Sentry;
+const string NG_BO_WarpDarkTemplar = "NG_Warp" + c_PU_DarkTemplar;
+const string NG_BO_WarpHighTemplar = "NG_Warp" + c_PU_HighTemplar;
+const string NG_BO_WarpAdept = "NG_Warp" + c_PU_Adept;
+const string NG_SetFin = "NG_SetFin";
+const string NG_Gas = "NG_Gas";
+const string NG_BarracksFactorySwitch = "NG_BarracksFactorySwitch";
+const string NG_BarracksFactorySwitchMove = "NG_BarracksFactorySwitchMove";
+const string NG_BarracksFactorySwitchLand = "NG_BarracksFactorySwitchLand";
+const string NG_BarracksStarportSwitch = "NG_BarracksStarportSwitch";
+const string NG_BarracksStarportSwitchMove = "NG_BarracksStarportSwitchMove";
+const string NG_BarracksStarportSwitchLand = "NG_BarracksStarportSwitchLand";
+const string NG_FactoryStarportSwitch = "NG_FactoryStarportSwitch";
+const string NG_FactoryStarportSwitchMove = "NG_FactoryStarportSwitchMove";
+const string NG_FactoryStarportSwitchLand = "NG_FactoryStarportSwitchLand";
+const fixed c_NG_GasCheckCooldown = 10.0;
+const fixed c_NG_GasRebuildCooldown = 30.0;
+
+struct NG_boPos {
+    // if minerals, vespin or supply equals 0 this
+    // position is not constrained by that ressource
+    int number;
+    //How many units shall be produced
+    int minerals;
+    int vespin;
+    int supply;
+    bool blockNext;
+    int addedToStock;
+    string unitString;
+    //Which unit shall be produced
+    int requiredCount;
+    //How many of requiredUnit are required
+    string requiredUnit;
+    //this unit is required in order to build the unitString
+};
+
+bool[8] AutoSupply;
+bool[8] AutoExpand;
+bool[8] AutoWorkers;
+int[8] MaxWorkers;	//starts with 70
+int[8] StockPositionsRemaining;
+int[8] BuildOrderImportance;
+int[8] MinVespeneSuperburnerLevel;
+int[8] MinMineralSuperburnerLevel;
+int[8] GasUnderConstruction;
+int[8] InstaWorkers;
+int[8] SupplyBuidingQueued;
+fixed[8] GasCooldown;
+fixed[8] AutoExpandCooldown;
+fixed[8] CooldownGasChecker;
+
+NG_boPos[8][100] curBuildOrder;
+NG_boPos[8][20] highPrioQueue;
+NG_boPos[8][20] instaBuild;
+NG_boPos[8] mostImportantBuilding;
+string[8][50] UnderConstruction;
+point[8][2] switchTarget;
+int[8] boCounter;
+int[8] frameCounter;
+int[8] instaPos;
+bool[8] boFinished;
+trigger unitCreated;
+trigger constructionComplete;
+trigger morphComplete;
+trigger researchDone;
+
+void NG_ClearInstaBuild(int player) {
+    int i = 0;
+    while (i < 20) {
+        instaBuild[player - 1][i].number = 0;
+        instaBuild[player - 1][i].unitString = "";
+        i += 1;
+    }
+    instaPos[player - 1] = 0;
+    mostImportantBuilding[player - 1].number = 0;
+    mostImportantBuilding[player - 1].unitString = "";
+}
+
+void NG_AddToInstaBuild(int player, string unitString, int number) {
+    int index = (instaPos[player - 1] + frameCounter[player - 1]) % 20;
+    instaBuild[player - 1][index].number = number;
+    instaBuild[player - 1][index].unitString = unitString;
+    instaPos[player - 1] += 1;
+}
+
+unit FindGeyser(point towncenter) {
+    point r = null;
+    unit cur;
+    string curstring;
+    unitgroup ug = AIFindUnits(0, null, towncenter, 15, 0);
+    unitgroup ug2;
+    bool uncontested = true;
+    int i = 1;
+    int j = 1;
+    int player = 0;
+    for (i = 1; i <= UnitGroupCount(ug, c_unitCountAll); i = i + 1) {
+        cur = UnitGroupUnit(ug, i);
+        uncontested = false;
+        if (UnitHasBehavior2(cur, "RawRichVespeneGeyserGas") || UnitHasBehavior2(cur, "RawVespeneGeyserGas")) {
+            uncontested = true;
+            //DebugAI("Found Geyser!");
+            player = 0;
+            while (player < 9 && uncontested) {
+                ug2 = AIFindUnits(player, null, UnitGetPosition(cur), 4, 0);
+                j = 1;
+                for (j = 1; j <= UnitGroupCount(ug2, c_unitCountAll); j = j + 1) {
+                    curstring = UnitGetType(UnitGroupUnit(ug2, j));
+                    //DebugAI("Unit near Geyser ("+IntToString(player)+"): "+curstring);
+                    if (curstring == c_TB_Refinery || curstring == c_PB_Assimilator || curstring == c_ZB_Extractor) {
+                        uncontested = false;
+                        //DebugAI("Geyser Contested");
+                        break;
+                    }
+                }
+                player = player + 1;
+            }
+            if (uncontested) {
+                //DebugAI("Uncontested!");
+                return cur;
+                break;
+            }
+        }
+    }
+    NG_debugBuild("Town Geysers Occupied");
+    return null;
+}
+
+order AICreateTargetedOrder(int player, string abilLink, int abilIndex, unit target) {
+    order ord;
+    abilcmd cmd = AbilityCommand(abilLink, abilIndex);
+    OrderTargetingUnit(cmd, target);
+    if (cmd == c_nullCmd) {
+        return null;
+    }
+    ord = Order(cmd);
+    OrderSetPlayer(ord, player);
+    return ord;
+}
+
+void NG_DebugBO(int player) {
+    int i = 0;
+    DebugAI("High Prio Queue (Player " + IntToString(player) + ")");
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].number > 0) {
+            DebugAI("   [" + IntToString(i) + "] " + highPrioQueue[player - 1][i].unitString + " (x" + IntToString(highPrioQueue[player - 1][i].number) + ")");
+        }
+        i = i + 1;
+    }
+}
+
+bool NG_BuildGas(int player) {
+    unit singelworker;
+    order bewegen;
+    order bauen;
+    string raceworker;
+    string ability;
+    int expCount = 0;
+    int mincost = 75;
+    point geyserpoint = null;
+    unit geyserunit = null;
+    string refineryString = "";
+    int i = 0;
+    if (GasUnderConstruction[player - 1] > 0 && GasCooldown[player - 1] > GameGetMissionTime()) {
+        return false;
+    }
+
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        expCount = AIKnownUnitCount(player, player, c_ZB_Hatchery_Alias);
+        refineryString = c_ZB_Extractor;
+        raceworker = c_ZU_Drone;
+        ability = c_AB_BuildZerg;
+        mincost = 25;
+        //DebugAI("Attempting to Build Extractor");
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        expCount = AIKnownUnitCount(player, player, c_PB_Nexus);
+        refineryString = c_PB_Assimilator;
+        raceworker = c_PU_Probe;
+        ability = c_AB_BuildProtoss;
+        //DebugAI("Attempting to Build Assimilator");
+    } else if (PlayerRace(player) == c_RaceStringTerran) {
+        expCount = AIKnownUnitCount(player, player, c_TB_CommandCenter_Alias);
+        refineryString = c_TB_Refinery;
+        raceworker = c_TU_SCV;
+        ability = c_AB_BuildTerran;
+        //DebugAI("Attempting to Build Refinery");
+    }
+
+    if (mincost >= PlayerGetPropertyInt(player, c_playerPropMinerals)) {
+        return false;
+    }
+
+    while (i < expCount) {
+        geyserunit = FindGeyser(AIGetTownLocation(player, i));
+        if (geyserunit != null) {
+
+            geyserpoint = UnitGetPosition(geyserunit);
+            singelworker = UnitGroupUnit(UnitGroup(raceworker, player, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+
+            // Erstellt das Bewegungs- und Baukommando
+            bewegen = AICreateOrder(player, c_AB_Move, 0);
+            bauen = AICreateTargetedOrder(player, ability, 2, geyserunit);	//NG_getBuildingId(refineryString) ability
+            // Setzt den Zielpunkt fuer die Orders
+            OrderSetTargetPoint(bewegen, PointWithOffset(geyserpoint, 0.0, 0.0));
+            //OrderSetTargetPoint(bauen,null);
+
+            OrderSetTargetPlacement(bauen, PointWithOffset(geyserpoint, 0.0, 0.0), geyserunit, UnitGetType(geyserunit));
+            OrderSetTargetUnit(bauen, geyserunit);
+            //PlayerCreateEffectPoint(player, "PsiStormPersistent", geyserpoint);
+            // Setzt die Orders in eine Liste zum Ausfuehren fuer die Einheit
+            //UnitIssueOrder((singelworker), (bewegen), c_orderQueueReplace);
+            UnitIssueOrder((singelworker), (bauen), c_orderQueueAddToFront);            //c_orderQueueAddToEnd
+
+            NG_RemoveFromBuildOrder(player, NG_Gas);
+            return true;
+        }
+        i = i + 1;
+    }
+    NG_debugBuild("Couldn't find no free geyser");
+    return false;
+}
+
+string NG_GetFlyingVersion(string unitName) {
+    if (unitName == c_TB_Barracks) {
+        return c_TB_BarracksFlying;
+    } else if (unitName == c_TB_Factory) {
+        return c_TB_FactoryFlying;
+    } else if (unitName == c_TB_Starport) {
+        return c_TB_StarportFlying;
+    }
+
+    return "";
+}
+
+order NG_GetLiftOffOrder(int player, string unitName) {
+    string orderName;
+
+    if (unitName == c_TB_Barracks) {
+        orderName = "BarracksLiftOff";
+    } else if (unitName == c_TB_Factory) {
+        orderName = "FactoryLiftOff";
+    } else if (unitName == c_TB_Starport) {
+        orderName = "StarportLiftOff";
+    } else {
+        NG_debugBuild("Kein passender Abhebebefehl fuer: " + unitName);
+        return null;
+    }
+
+    return AICreateOrder(player, orderName, 0);
+}
+
+order NG_GetLandingOrder(int player, string unitName) {
+    string orderName;
+
+    if (unitName == c_TB_BarracksFlying) {
+        orderName = "BarracksLand";
+    } else if (unitName == c_TB_FactoryFlying) {
+        orderName = "FactoryLand";
+    } else if (unitName == c_TB_StarportFlying) {
+        orderName = "StarportLand";
+    } else {
+        NG_debugBuild("Kein passender Landebefehl fuer: " + unitName);
+        return null;
+    }
+
+    return AICreateOrder(player, orderName, 0);
+}
+
+order NG_GetMoveOrder(int player, string unitName) {
+    return AICreateOrder(player, c_AB_Move, 0);
+}
+
+void NG_SwitchBarracksFactory(int player) {
+    NG_AddToBO_Simple(player, 1, NG_BarracksFactorySwitch, true);
+    NG_AddToBO_Simple(player, 1, NG_BarracksFactorySwitchMove, true);
+    NG_AddToBO_Simple(player, 1, NG_BarracksFactorySwitchLand, true);
+}
+
+void NG_SwitchBarracksStarport(int player) {
+    NG_AddToBO_Simple(player, 1, NG_BarracksStarportSwitch, true);
+    NG_AddToBO_Simple(player, 1, NG_BarracksStarportSwitchMove, true);
+    NG_AddToBO_Simple(player, 1, NG_BarracksStarportSwitchLand, true);
+}
+
+void NG_SwitchFactoryStarport(int player) {
+    NG_AddToBO_Simple(player, 1, NG_FactoryStarportSwitch, true);
+    NG_AddToBO_Simple(player, 1, NG_FactoryStarportSwitchMove, true);
+    NG_AddToBO_Simple(player, 1, NG_FactoryStarportSwitchLand, true);
+}
+
+bool NG_Switch(int player, string firstBuildingName, string secondBuildingName) {
+    unit firstBuildingUnit;
+    unit secondBuildingUnit;
+
+    firstBuildingUnit = UnitGroupUnit(UnitGroup(firstBuildingName, player, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+    secondBuildingUnit = UnitGroupUnit(UnitGroup(secondBuildingName, player, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+
+    if (firstBuildingUnit == null || secondBuildingUnit == null) {
+        return false;
+    }
+
+    switchTarget[player - 1][1] = UnitGetPosition(firstBuildingUnit);
+    switchTarget[player - 1][0] = UnitGetPosition(secondBuildingUnit);
+
+    if (UnitOrderIsValid(firstBuildingUnit, NG_GetLiftOffOrder(player, firstBuildingName)) && UnitOrderIsValid(secondBuildingUnit, NG_GetLiftOffOrder(player, secondBuildingName))) {
+        AICast(firstBuildingUnit, NG_GetLiftOffOrder(player, firstBuildingName), c_noMarker, c_castHold);
+        AICast(secondBuildingUnit, NG_GetLiftOffOrder(player, secondBuildingName), c_noMarker, c_castHold);
+//        UnitIssueOrder(firstBuildingUnit, NG_GetLiftOffOrder(player, firstBuildingName), c_orderQueueAddToFront);
+//        UnitIssueOrder(secondBuildingUnit, NG_GetLiftOffOrder(player, secondBuildingName), c_orderQueueAddToFront);
+        return true;
+    } else {
+        return false;
+    }
+
+}
+
+bool NG_SwitchPoints(int player, string firstBuildingName, string secondBuildingName) {
+    unit firstBuildingUnit;
+    unit secondBuildingUnit;
+
+    order firstSwitchPosOrder;
+    order secondSwitchPosOrder;
+
+    firstBuildingUnit = UnitGroupUnit(UnitGroup(NG_GetFlyingVersion(firstBuildingName), player, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+    secondBuildingUnit = UnitGroupUnit(UnitGroup(NG_GetFlyingVersion(secondBuildingName), player, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+
+    if (firstBuildingUnit == null || secondBuildingUnit == null) {
+        return false;
+    }
+
+    firstSwitchPosOrder = NG_GetMoveOrder(player, NG_GetFlyingVersion(firstBuildingName));
+    secondSwitchPosOrder = NG_GetMoveOrder(player, NG_GetFlyingVersion(secondBuildingName));
+
+    OrderSetTargetPoint(firstSwitchPosOrder, switchTarget[player - 1][0]);
+    OrderSetTargetPoint(secondSwitchPosOrder, switchTarget[player - 1][1]);
+
+    if (UnitOrderIsValid(firstBuildingUnit, firstSwitchPosOrder) && UnitOrderIsValid(secondBuildingUnit, secondSwitchPosOrder)) {
+        AICast(firstBuildingUnit, firstSwitchPosOrder, c_noMarker, c_castHold);
+        AICast(secondBuildingUnit, secondSwitchPosOrder, c_noMarker, c_castHold);
+//        UnitIssueOrder(firstBuildingUnit, firstSwitchPosOrder, c_orderQueueAddToFront);
+//        UnitIssueOrder(secondBuildingUnit, secondSwitchPosOrder, c_orderQueueAddToFront);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool NG_Land(int player, string firstBuildingName, string secondBuildingName) {
+    unit firstBuildingUnit;
+    unit secondBuildingUnit;
+
+    order firstLandingOrder;
+    order secondLandingOrder;
+
+    firstBuildingUnit = UnitGroupUnit(UnitGroup(NG_GetFlyingVersion(firstBuildingName), player, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+    secondBuildingUnit = UnitGroupUnit(UnitGroup(NG_GetFlyingVersion(secondBuildingName), player, (RegionEntireMap()), UnitFilter(0, 0, 0, 0), 0), 1);
+
+    if (firstBuildingUnit == null || secondBuildingUnit == null) {
+        return false;
+    }
+
+    firstLandingOrder = NG_GetLandingOrder(player, NG_GetFlyingVersion(firstBuildingName));
+    secondLandingOrder = NG_GetLandingOrder(player, NG_GetFlyingVersion(secondBuildingName));
+
+    OrderSetTargetPoint(firstLandingOrder, switchTarget[player - 1][0]);
+    OrderSetTargetPoint(secondLandingOrder, switchTarget[player - 1][1]);
+
+    if (UnitOrderIsValid(firstBuildingUnit, firstLandingOrder) && UnitOrderIsValid(secondBuildingUnit, secondLandingOrder)) {
+        AICast(firstBuildingUnit, firstLandingOrder, c_noMarker, c_castHold);
+        AICast(secondBuildingUnit, secondLandingOrder, c_noMarker, c_castHold);
+//        UnitIssueOrder(firstBuildingUnit, firstLandingOrder, c_orderQueueAddToFront);
+//        UnitIssueOrder(secondBuildingUnit, secondLandingOrder, c_orderQueueAddToFront);
+        return true;
+    } else {
+        return false;
+    }
+
+}
+
+void NG_initBuildManager() {
+    NG_UnitCreated_Init();
+    NG_ConstructionComplete_Init();
+    NG_MorphComplete_Init();
+    NG_ResearchDone_Init();
+}
+
+void SetAutoSupply(int player, bool autosupply) {
+    AutoSupply[player - 1] = autosupply;
+}
+
+void SetAutoWorkers(int player, bool autoworkers) {
+    AutoWorkers[player - 1] = autoworkers;
+}
+
+void SetAutoExpand(int player, bool autoexpand) {
+    AutoExpand[player - 1] = autoexpand;
+}
+
+void NG_SetBuildOrderImportance(int player, int importance) {
+    if (importance < BuildOrderImportance[player - 1]) {
+        BuildOrderImportance[player - 1] = importance;
+        NG_debugBuild("Build Order Importance for Player " + IntToString(player) + " set to " + IntToString(importance));
+    }
+}
+
+bool GetAutoSupply(int player) {
+    return AutoSupply[player - 1];
+}
+
+int GetBoImportance(int player) {
+    return BuildOrderImportance[player - 1];
+}
+
+bool GetAutoWorkers(int player) {
+    return AutoWorkers[player - 1];
+}
+
+bool GetAutoExpand(int player) {
+    return AutoExpand[player - 1];
+}
+
+void NG_InitBuildOrder(int player) {
+    int i = 0;
+    while (i < 100) {
+        curBuildOrder[player - 1][i].number = 1;
+        curBuildOrder[player - 1][i].minerals = 0;
+        curBuildOrder[player - 1][i].vespin = 0;
+        curBuildOrder[player - 1][i].addedToStock = 0;
+        curBuildOrder[player - 1][i].supply = 0;
+        curBuildOrder[player - 1][i].blockNext = false;
+        curBuildOrder[player - 1][i].unitString = "";
+        curBuildOrder[player - 1][i].requiredCount = 1;
+        curBuildOrder[player - 1][i].requiredUnit = "";
+        i = i + 1;
+    }
+    MinVespeneSuperburnerLevel[player - 1] = 3;
+    MinMineralSuperburnerLevel[player - 1] = 3;
+    BuildOrderImportance[player - 1] = 100;
+    MaxWorkers[player - 1] = 70;
+}
+
+void NG_PlayerSetSuperBurnerThreshold(int player, int m_level, int g_level) {
+    MinVespeneSuperburnerLevel[player - 1] = m_level;
+    MinMineralSuperburnerLevel[player - 1] = g_level;
+}
+
+void NG_ShuffleHPQ(int player) {
+//Stock does weired shit and waits until it can build the first entry.
+//Unfortunately we don't really want that in our High Prio Queue, everything needs to be built parallel
+    int rindex = RandomInt(1, 19);
+    int bufNumber = highPrioQueue[player - 1][0].number;
+    string bufUnitString = highPrioQueue[player - 1][0].unitString;
+    if (highPrioQueue[player - 1][rindex].number == 0) {
+        return;
+    }
+    highPrioQueue[player - 1][0].number = highPrioQueue[player - 1][rindex].number;
+    highPrioQueue[player - 1][0].unitString = highPrioQueue[player - 1][rindex].unitString;
+    highPrioQueue[player - 1][rindex].number = bufNumber;
+    highPrioQueue[player - 1][rindex].unitString = bufUnitString;
+//DebugAI("Shuffled "+IntToString(rindex)+" ["+highPrioQueue[player - 1][0].unitString+"] to the top");
+}
+
+//Add a Build Position to the Build Order
+void NG_AddToBO(int player, int amount, int minerals, int vespin, int supply, bool blockNext, string unitString, int requiredAmount, string requiredUnit) {
+    curBuildOrder[player - 1][boCounter[player - 1]].minerals = minerals;
+    curBuildOrder[player - 1][boCounter[player - 1]].number = amount;
+    curBuildOrder[player - 1][boCounter[player - 1]].vespin = vespin;
+    curBuildOrder[player - 1][boCounter[player - 1]].supply = supply;
+    curBuildOrder[player - 1][boCounter[player - 1]].blockNext = blockNext;
+    curBuildOrder[player - 1][boCounter[player - 1]].unitString = unitString;
+    curBuildOrder[player - 1][boCounter[player - 1]].requiredCount = requiredAmount;
+    curBuildOrder[player - 1][boCounter[player - 1]].requiredUnit = requiredUnit;
+    boCounter[player - 1] = boCounter[player - 1] + 1;
+}
+
+//Simplified Version of NG_AddToBO
+void NG_AddToBO_Simple(int player, int amount, string unitString, bool blockNext) {
+    NG_AddToBO(player, amount, 0, 0, 0, blockNext, unitString, 0, "");
+
+}
+
+//Remove a Build Position from the Build Order
+void NG_RemoveFromBuildOrder(int player, string unitString) {
+    int i = 0;
+    if (unitString == NG_Gas) {
+        GasUnderConstruction[player - 1] += 1;
+        GasCooldown[player - 1] = GameGetMissionTime() + c_NG_GasRebuildCooldown;
+    } else if (unitString == c_TB_Refinery || unitString == c_PB_Assimilator || unitString == c_ZB_Extractor) {
+        GasUnderConstruction[player - 1] -= 1;
+        if (GasUnderConstruction[player - 1] < 0) {
+            GasUnderConstruction[player - 1] = 0;
+        }
+    } else if (unitString == c_TU_SCV || unitString == c_PU_Probe || unitString == c_ZU_Drone) {
+        InstaWorkers[player - 1] -= 1;
+        if (InstaWorkers[player - 1] < 0) {
+            InstaWorkers[player - 1] = 0;
+        }
+    } else if (unitString == c_ZU_Overlord) {
+        SupplyBuidingQueued[player - 1] -= 1;
+        if (SupplyBuidingQueued[player - 1] < 0) {
+            SupplyBuidingQueued[player - 1] = 0;
+        }
+    }
+    NG_RemoveFromHighPrioBuildOrder(player, unitString);
+    i = 0;
+    while (i < 100 && curBuildOrder[player - 1][i].unitString != "") {
+        if (curBuildOrder[player - 1][i].unitString == unitString && curBuildOrder[player - 1][i].number > 0) {
+            curBuildOrder[player - 1][i].number = curBuildOrder[player - 1][i].number - 1;
+            //NG_debugBuild("Removed "+unitString+" from Player "+IntToString(player)+" Stock");
+            return;
+        }
+
+        i = i + 1;
+    }
+//NG_debugBuild("Could not remove "+unitString+" from Player "+IntToString(player)+" Stock");
+}
+
+void NG_UpdateHighPrioBuildOrder(int player, string unitString, int newCount) {
+    int i = 0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == unitString && highPrioQueue[player - 1][i].number > 0) {
+            highPrioQueue[player - 1][i].number = newCount;
+            NG_debugBuild("Updated " + unitString + " from Player " + IntToString(player) + " HighPrioQueue to new Value " + IntToString(newCount));
+            return;
+        }
+        i = i + 1;
+    }
+// Unit not found in highPrioQueue --> Add it
+    NG_AddHighPrioUnit(player, newCount, unitString);
+}
+
+void NG_RemoveFromHighPrioBuildOrder(int player, string unitString) {
+    int i = 0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == unitString && highPrioQueue[player - 1][i].number > 0) {
+            highPrioQueue[player - 1][i].number = highPrioQueue[player - 1][i].number - 1;
+            NG_debugBuild("Removed " + unitString + " from Player " + IntToString(player) + " HighPrioQueue");
+            return;
+        }
+        i = i + 1;
+    }
+}
+
+bool NG_UnitCreated_Func(bool testConds, bool runActions) {
+    int player = UnitGetOwner(EventUnitCreatedUnit());
+    string unitType = UnitGetType(EventUnitCreatedUnit());
+    if (AIPlayerDifficulty(player) != c_skirVeryEasy) {
+        //NG_debugBuild("Non NGAI created something");
+        return false;
+    }
+    if (UnitCheckProgressState(EventUnitCreatedUnit(), 1, c_unitProgressStateActive)) {
+        //NG_debugBuild("Player "+IntToString(player)+" started constructing a "+unitType);
+        NG_RemoveFromBuildOrder(player, unitType);
+    } else {
+        //NG_debugBuild("Player "+IntToString(player)+" constructed a "+unitType);
+        NG_RemoveFromBuildOrder(player, unitType);
+    }
+    if (unitType == c_ZU_Overseer || unitType == c_PU_Observer || unitType == c_TU_Raven) {
+        NG_addUnitToWave(player, EventUnitCreatedUnit(), c_NG_AttackWave);
+    }
+    return true;
+}
+
+void NG_UnitCreated_Init() {
+    unitCreated = TriggerCreate("NG_UnitCreated_Func");
+    TriggerAddEventUnitCreated(unitCreated, null, null, null);
+}
+
+bool NG_ResearchDone_Func(bool testConds, bool runActions) {
+    int player = UnitGetOwner(EventUnit());
+    string unitType = libNtve_gf_TriggeringProgressUpgrade();
+    if (AIPlayerDifficulty(player) != c_skirVeryEasy) {
+        NG_debugBuild("Non NGAI researched something");
+        return false;
+    }
+
+    NG_debugBuild("Player " + IntToString(player) + " finished a research: " + unitType);
+    NG_RemoveFromBuildOrder(player, unitType);
+
+    return true;
+}
+
+void NG_ResearchDone_Init() {
+    researchDone = TriggerCreate("NG_ResearchDone_Func");
+    TriggerAddEventUnitResearchProgress(researchDone, null, c_unitProgressStageComplete);
+}
+
+bool NG_ConstructionComplete_Func(bool testConds, bool runActions) {
+    int player = UnitGetOwner(EventUnitProgressUnit());
+    if (AIPlayerDifficulty(player) != c_skirVeryEasy) {
+        //NG_debugBuild("Non NGAI created something");
+        return false;
+    }
+    NG_debugBuild("Player " + IntToString(player) + " finished constructing a " + UnitGetType(EventUnitProgressUnit()));
+    return true;
+}
+
+bool NG_MorphComplete_Func(bool testConds, bool runActions) {
+    string unitType = UnitGetType(EventUnit());
+    int player = UnitGetOwner(EventUnit());
+    if (AIPlayerDifficulty(player) != c_skirVeryEasy) {
+        NG_debugBuild("Non NGAI morphed something");
+        return false;
+    }
+    NG_debugBuild("Player " + IntToString(player) + " finished morphing a " + UnitGetType(EventUnit()));
+    NG_RemoveFromBuildOrder(player, unitType);
+    return true;
+}
+
+void NG_ConstructionComplete_Init() {
+    constructionComplete = TriggerCreate("NG_ConstructionComplete_Func");
+    TriggerAddEventUnitConstructProgress(constructionComplete, null, c_unitProgressStageComplete);
+
+}
+
+void NG_MorphComplete_Init() {
+    morphComplete = TriggerCreate("NG_MorphComplete_Func");
+    TriggerAddEventUnitAbility(morphComplete, null, null, c_abilMorphStageUnitEnd, true);
+//TriggerAddEventUnitResearchProgress(morphComplete, null, c_unitProgressStageComplete);
+}
+
+int NG_HighPrioStatus(int player, int index) {
+
+    if (highPrioQueue[player - 1][index].number <= 0) {
+        return NG_BuildStatus_Done;
+    }
+    if (highPrioQueue[player - 1][index].addedToStock > 0) {
+        return NG_BuildStatus_AddedToStock;
+    } else {
+        return NG_BuildStatus_NotPossible;
+    }
+}
+
+int NG_BuildStatus(int player, int index) {
+//0 == Not possible
+//1 == Possible
+//4 == Added To Stock
+//2 == Under Construction
+//3 == Done
+    if (curBuildOrder[player - 1][index].number <= 0) {
+        return NG_BuildStatus_Done;
+    }
+    if (curBuildOrder[player - 1][index].addedToStock > 0) {
+        return NG_BuildStatus_AddedToStock;
+    }
+    if ((curBuildOrder[player - 1][index].requiredUnit == "" || curBuildOrder[player - 1][index].requiredCount <= AIKnownUnitCount(player, player, curBuildOrder[player - 1][index].requiredUnit)) && curBuildOrder[player - 1][index].minerals <= PlayerGetPropertyInt(player, c_playerPropMinerals) && curBuildOrder[player - 1][index].vespin <= PlayerGetPropertyInt(player, c_playerPropVespene) && curBuildOrder[player - 1][index].supply <= PlayerGetPropertyInt(player, c_playerPropSuppliesUsed)) {
+        return NG_BuildStatus_Possible;
+    } else {
+        return NG_BuildStatus_NotPossible;
+    }
+}
+
+void NG_DebugBuildOrder(int player) {
+    int i = 0;
+    int n = 0;
+    while (i < 100 && n < 20) {
+        if (curBuildOrder[player - 1][i].unitString == "") {
+            return;
+        }
+        if (curBuildOrder[player - 1][i].number != 0) {
+            n += 1;
+            if (curBuildOrder[player - 1][i].blockNext) {
+                DebugAI("{B} [" + IntToString(i) + "] " + IntToString(curBuildOrder[player - 1][i].number) + "x " + curBuildOrder[player - 1][i].unitString);
+            } else {
+                DebugAI("[" + IntToString(i) + "] " + IntToString(curBuildOrder[player - 1][i].number) + "x " + curBuildOrder[player - 1][i].unitString);
+            }
+        }
+        i += 1;
+    }
+}
+
+void NG_BuildUnit(int player, string unitString, int number) {
+    int absoluteNumber = number + AIKnownUnitCount(player, player, unitString);
+    if (unitString == NG_Gas) {
+        NG_BuildGas(player);
+        return;
+    } else if (unitString == NG_Expand) {
+        //NG_debugBuild("Player "+IntToString(player)+ " is trying to Expand!");
+        if (PlayerRace(player) == c_RaceStringZerg) {
+            AIExpand(player, AIGetTownLocation(player, c_townMain), c_ZB_Hatchery);
+            NG_debugBuild("The Zerg Player " + IntToString(player) + " is trying to build Base #" + IntToString(AIKnownUnitCount(player, player, c_ZB_Hatchery_Alias) + 1));
+        } else if (PlayerRace(player) == c_RaceStringTerran) {
+            AIExpand(player, AIGetTownLocation(player, c_townMain), c_TB_CommandCenter);
+            NG_debugBuild("The Terran Player " + IntToString(player) + " is trying to build Base #" + IntToString(AIKnownUnitCount(player, player, c_TB_CommandCenter_Alias) + 1));
+        } else if (PlayerRace(player) == c_RaceStringProtoss) {
+            AIExpand(player, AIGetTownLocation(player, c_townMain), c_PB_Nexus);
+            NG_debugBuild("The Protoss Player " + IntToString(player) + " is trying to build Base #" + IntToString(AIKnownUnitCount(player, player, c_PB_Nexus) + 1));
+        } else {
+            NG_debugBuild("(Expansion): Player " + IntToString(player) + " race undetermined");
+        }
+        NG_RemoveFromBuildOrder(player, NG_Expand);
+        return;
+
+        // Terran Building Switching
+    } else if (unitString == NG_BarracksFactorySwitch) {
+        if (NG_Switch(player, c_TB_Factory, c_TB_Barracks)) {
+            DebugAI("Switching Racks-Factory");
+            NG_RemoveFromBuildOrder(player, NG_BarracksFactorySwitch);
+        }
+        return;
+
+    } else if (unitString == NG_BarracksFactorySwitchMove) {
+        if (NG_SwitchPoints(player, c_TB_Factory, c_TB_Barracks)) {
+            NG_RemoveFromBuildOrder(player, NG_BarracksFactorySwitchMove);
+        }
+    } else if (unitString == NG_BarracksFactorySwitchLand) {
+        if (NG_Land(player, c_TB_Factory, c_TB_Barracks)) {
+            NG_RemoveFromBuildOrder(player, NG_BarracksFactorySwitchLand);
+        }
+        return;
+    } else if (unitString == NG_BarracksStarportSwitch) {
+        if (NG_Switch(player, c_TB_Starport, c_TB_Barracks)) {
+            DebugAI("Switching Racks-Starport");
+            NG_RemoveFromBuildOrder(player, NG_BarracksStarportSwitch);
+        }
+        return;
+    } else if (unitString == NG_BarracksStarportSwitchMove) {
+        if (NG_SwitchPoints(player, c_TB_Starport, c_TB_Barracks)) {
+            NG_RemoveFromBuildOrder(player, NG_BarracksStarportSwitchMove);
+        }
+
+        return;
+    } else if (unitString == NG_BarracksStarportSwitchLand) {
+        if (NG_Land(player, c_TB_Starport, c_TB_Barracks)) {
+            NG_RemoveFromBuildOrder(player, NG_BarracksStarportSwitchLand);
+        }
+        return;
+
+    } else if (unitString == NG_FactoryStarportSwitch) {
+        if (NG_Switch(player, c_TB_Factory, c_TB_Starport)) {
+            DebugAI("Lift off!");
+            NG_RemoveFromBuildOrder(player, NG_FactoryStarportSwitch);
+        }
+        return;
+    } else if (unitString == NG_FactoryStarportSwitchMove) {
+        if (NG_SwitchPoints(player, c_TB_Factory, c_TB_Starport)) {
+            DebugAI("I go here and u go there, k?");
+            NG_RemoveFromBuildOrder(player, NG_FactoryStarportSwitchMove);
+        }
+        return;
+    } else if (unitString == NG_FactoryStarportSwitchLand) {
+        if (NG_Land(player, c_TB_Factory, c_TB_Starport)) {
+            DebugAI("We're going down!");
+            NG_RemoveFromBuildOrder(player, NG_FactoryStarportSwitchLand);
+        }
+        return;
+    }
+
+    if (StockPositionsRemaining[player - 1] > 0) {
+        //AISetStock(player, absoluteNumber, unitString);
+        NG_AddToInstaBuild(player, unitString, absoluteNumber);
+        StockPositionsRemaining[player - 1] -= 1;
+    } else {
+        NG_debugBuild("Stock is limited");
+    }
+//NG_debugBuild("Player "+IntToString(player)+" Added "+unitString+" x"+IntToString(absoluteNumber)+" to Stock");
+
+}
+
+int NG_CountQueued(int player, string unittype) {
+    int i = 0;
+    int r = 0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == unittype) {
+            r += highPrioQueue[player - 1][i].number;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while (i < 100) {
+        if (curBuildOrder[player - 1][i].unitString == unittype) {
+            r += curBuildOrder[player - 1][i].number;
+        }
+        i = i + 1;
+    }
+    return r;
+}
+
+void NG_AutoExpand(int player, int expcount) {
+    int mineralFields = 0;
+    int i = 0;
+    int currentgas = 0;
+    fixed missiontime = GameGetMissionTime();
+    if (CooldownGasChecker[player - 1] < missiontime && GasUnderConstruction[player - 1] <= 0) {
+        NG_debugBuild("Checking gas");
+        currentgas = (AIKnownUnitCount(player, player, c_PB_Assimilator) + AIKnownUnitCount(player, player, c_TB_Refinery) + AIKnownUnitCount(player, player, c_ZB_Extractor) + NG_CountQueued(player, NG_Gas));
+        if ((expcount * 2) > currentgas) {
+            NG_debugBuild("Requesting more gas");
+            NG_UpdateHighPrioBuildOrder(player, NG_Gas, 1);
+        } else {
+            CooldownGasChecker[player - 1] = c_NG_GasCheckCooldown + missiontime;
+            NG_debugBuild("Gas looks fine. Not gonna check gas for the next " + FixedToString(c_NG_GasCheckCooldown, 1) + " seconds");
+        }
+    }
+
+    if (AutoExpandCooldown[player - 1] > GameGetMissionTime()) {
+        return;
+    }
+
+    while (i < expcount) {
+        mineralFields = mineralFields + (AIGetMineralNumSpots(player, i));
+        i = i + 1;
+    }
+//if(PlayerRace(player)!="Zerg"){
+    if (mineralFields > NG_AutoExpandMaxMineralFields) {
+        AutoExpandCooldown[player - 1] = GameGetMissionTime() + 15.0;
+        NG_debugBuild("Too many Mineral Fields. Player " + IntToString(player) + " will not expand!");
+        return;
+    }
+//}
+    NG_AddHighPrioUnit(player, 1, NG_Expand);
+    AutoExpandCooldown[player - 1] = GameGetMissionTime() + 20.0 + (7.0 * (mineralFields));
+    NG_debugBuild("Next Expansion in " + FixedToString(AutoExpandCooldown[player - 1] - GameGetMissionTime(), 0) + " seconds");
+}
+
+void NG_AutoWorkers(int player, int refineryCount, int expCount, string workerUnit) {
+    int currentWorkerCount = AIKnownUnitCount(player, player, workerUnit) + InstaWorkers[player - 1];
+    int requiredWorkers = 0;
+    int i = 0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == workerUnit) {
+            currentWorkerCount = currentWorkerCount + highPrioQueue[player - 1][i].number;
+        } else if (highPrioQueue[player - 1][i].unitString == "") {
+            break;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while (i < 100) {
+        if (curBuildOrder[player - 1][i].unitString == workerUnit) {
+            currentWorkerCount = currentWorkerCount + curBuildOrder[player - 1][i].number;
+        } else if (curBuildOrder[player - 1][i].unitString == "") {
+            break;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while (i < expCount) {
+        requiredWorkers = requiredWorkers + (AIGetMineralNumSpots(player, i) * 2);
+        i = i + 1;
+    }
+    requiredWorkers = requiredWorkers + (refineryCount * 3);    //Does not check if gas is depleted
+    if (requiredWorkers > MaxWorkers[player - 1]) {
+        NG_debugBuild("Worker Maximum Reached");
+        requiredWorkers = MaxWorkers[player - 1];
+    }
+    if (requiredWorkers > currentWorkerCount) {
+        mostImportantBuilding[player - 1].number = requiredWorkers;
+        mostImportantBuilding[player - 1].unitString = workerUnit;
+    }
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        requiredWorkers = expCount;
+        currentWorkerCount = AIKnownUnitCount(player, player, c_ZU_Queen);
+        i = 0;
+        while (i < 20) {
+            if (highPrioQueue[player - 1][i].unitString == c_ZU_Queen) {
+                currentWorkerCount = currentWorkerCount + highPrioQueue[player - 1][i].number;
+            } else if (highPrioQueue[player - 1][i].unitString == "") {
+                break;
+            }
+            i = i + 1;
+        }
+        i = 0;
+        while (i < 100) {
+            if (curBuildOrder[player - 1][i].unitString == c_ZU_Queen) {
+                currentWorkerCount = currentWorkerCount + curBuildOrder[player - 1][i].number;
+            } else if (curBuildOrder[player - 1][i].unitString == "") {
+                break;
+            }
+            i = i + 1;
+        }
+        if (requiredWorkers > currentWorkerCount) {
+            NG_AddHighPrioUnit(player, requiredWorkers - currentWorkerCount, c_ZU_Queen);
+        }
+    }
+}
+
+void NG_AddHighPrioUnit(int player, int number, string unitString) {
+    int i = 0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].unitString == unitString) {
+            highPrioQueue[player - 1][i].number += number;
+            if (highPrioQueue[player - 1][i].number > 20) {
+                highPrioQueue[player - 1][i].number = 20;
+                NG_debugBuild("Spam Prevention (" + unitString + ") for Player " + IntToString(player));
+            }
+            NG_debugBuild("Increased number of " + unitString + " for " + IntToString(number) + " at index " + IntToString(i));
+            return;
+        }
+        i += 1;
+    }
+    i = 0;
+    while (i < 20) {
+        if (highPrioQueue[player - 1][i].number <= 0) {
+            highPrioQueue[player - 1][i].number = number;
+            highPrioQueue[player - 1][i].unitString = unitString;
+            highPrioQueue[player - 1][i].requiredUnit = "";
+            highPrioQueue[player - 1][i].requiredCount = 0;
+            highPrioQueue[player - 1][i].addedToStock = 0;
+            highPrioQueue[player - 1][i].blockNext = false;
+            NG_debugBuild("Added " + IntToString(number) + " " + unitString + " to the HighPrioQueue at index " + IntToString(i));
+            //does not use the constraint fields. If we run out of RAM, we should make a new struct
+            return;
+        }
+        i = i + 1;
+    }
+    NG_debugBuild("Player " + IntToString(player) + ": High Prio Queue is full");
+}
+
+void NG_AutoSupply(int player) {
+    string supplyStructureType;
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        supplyStructureType = c_ZU_Overlord;
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        supplyStructureType = c_PB_Pylon;
+    } else if (PlayerRace(player) == c_RaceStringTerran) {
+        supplyStructureType = c_TB_SupplyDepot;
+    }
+    if (NG_GetBurnLevelMinerals(player) > 1 && PlayerGetPropertyInt(player, c_playerPropSuppliesMade) < 200 && PlayerGetPropertyInt(player, c_playerPropSuppliesUsed) * 1.5 > PlayerGetPropertyInt(player, c_playerPropSuppliesMade)) {
+        NG_UpdateHighPrioBuildOrder(player, supplyStructureType, 1);
+    }
+    if (SupplyBuidingQueued[player - 1] < 2 && PlayerRace(player) == c_RaceStringZerg && PlayerGetPropertyInt(player, c_playerPropSuppliesMade) < 4 + PlayerGetPropertyInt(player, c_playerPropSuppliesUsed)) {
+        //AITrain(player, 50, 1, c_ZU_Overlord, 1);
+        AITrain(player, 50, 0, c_ZU_Overlord, 1);
+        SupplyBuidingQueued[player - 1] += 1;
+        DebugAI("Preventing Supply Block!");
+    }
+}
+
+void NG_InstaBuilder(int player) {
+    int town;
+    string unittype;
+    int count;
+    int expCount;
+    int i = 0;
+
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        expCount = AIKnownUnitCount(player, player, c_ZB_Hatchery_Alias);
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        expCount = AIKnownUnitCount(player, player, c_PB_Nexus);
+    } else if (PlayerRace(player) == c_RaceStringTerran) {
+        expCount = AIKnownUnitCount(player, player, c_TB_CommandCenter_Alias);
+    }
+    AIClearTrainQueue(player);
+    town = (frameCounter[player - 1] % expCount) + 1;
+
+    if (mostImportantBuilding[player - 1].number > 0) {
+        AITrain(player, 40, town, mostImportantBuilding[player - 1].unitString, 1);
+        InstaWorkers[player - 1] += 1;
+    }
+
+    //Does not work for buildings, so overlords are the only units that can get boosted out!
+    if (SupplyBuidingQueued[player - 1] < 3 && PlayerRace(player) == c_RaceStringZerg && PlayerGetPropertyInt(player, c_playerPropSuppliesMade) < 4 + PlayerGetPropertyInt(player, c_playerPropSuppliesUsed)) {
+        //AITrain(player, 50, town, c_ZU_Overlord, 1);
+        AITrain(player, 50, 0, c_ZU_Overlord, 1);
+        SupplyBuidingQueued[player - 1] += 1;
+    }
+
+    while (i < 20) {
+
+        if (!(instaBuild[player - 1][i].unitString == "" || instaBuild[player - 1][i].number <= 0) && !UnitTypeTestAttribute(instaBuild[player - 1][i].unitString, c_unitAttributeStructure)) {
+            if (CatalogEntryIsValid(85, instaBuild[player - 1][i].unitString)) {
+                //DebugAI(instaBuild[player-1][i].unitString+" is a research!");
+            } else {
+                if (instaBuild[player - 1][i].unitString != c_ZU_Overlord) {
+                    //AITrain(player, 20 - i, town, instaBuild[player - 1][i].unitString, instaBuild[player - 1][i].number);
+                    AITrain(player, 20 - i, 0, instaBuild[player - 1][i].unitString, 1);
+                } else if (SupplyBuidingQueued[player - 1] < NG_GetBurnLevelMinerals(player)&&PlayerGetPropertyInt(player, c_playerPropSuppliesMade)<200) {
+                    AITrain(player, 30, town, instaBuild[player - 1][i].unitString, 1);
+                    SupplyBuidingQueued[player - 1] += 1;
+                }
+            }
+        }
+        i += 1;
+    }
+}
+
+void NG_BuildLoop(int player) {
+    int status;
+    int i = 0;
+    string unitString;
+    string detectorString;
+    bool built = false;
+
+    frameCounter[player - 1] += 1;
+    AIClearStock(player);
+    NG_ClearInstaBuild(player);
+    if ((frameCounter[player - 1] % NG_Test_Clearframe) == 0) {
+        return;
+        //one frame where stock is empty may help... or not.
+    }
+    StockPositionsRemaining[player - 1] = NG_HPQ_MaxStockPositions;
+    if (PlayerRace(player) == "Zerg") {
+        detectorString = c_ZU_Overseer;
+        if (GetAutoWorkers(player)) {
+
+            NG_AutoWorkers(player, AIKnownUnitCount(player, player, c_ZB_Extractor), AIKnownUnitCount(player, player, c_ZB_Hatchery_Alias), c_ZU_Drone);
+        }
+        if (GetAutoSupply(player)) {
+            AISetStockFarms(player, c_ZU_Overlord_Alias, c_stockNormalFarms);
+        }
+        if (GetAutoExpand(player)) {
+            NG_AutoExpand(player, AIKnownUnitCount(player, player, c_ZB_Hatchery_Alias));
+        }
+    } else if (PlayerRace(player) == "Terr") {
+        detectorString = c_TU_Raven;
+        if (GetAutoWorkers(player)) {
+            NG_AutoWorkers(player, AIKnownUnitCount(player, player, c_TB_Refinery), AIKnownUnitCount(player, player, c_TB_CommandCenter_Alias), c_TU_SCV);
+        }
+        if (GetAutoSupply(player)) {
+            AISetStockFarms(player, c_TB_SupplyDepot, c_stockNormalFarms);
+        }
+        if (GetAutoExpand(player)) {
+            NG_AutoExpand(player, AIKnownUnitCount(player, player, c_TB_CommandCenter_Alias));
+        }
+    } else if (PlayerRace(player) == "Prot") {
+        detectorString = c_PU_Observer;
+        if (GetAutoWorkers(player)) {
+            NG_AutoWorkers(player, AIKnownUnitCount(player, player, c_PB_Assimilator), AIKnownUnitCount(player, player, c_PB_Nexus), c_PU_Probe);
+        }
+        if (GetAutoSupply(player)) {
+            AISetStockFarms(player, c_PB_Pylon, c_stockNormalFarms);
+        }
+        if (GetAutoExpand(player)) {
+            NG_AutoExpand(player, AIKnownUnitCount(player, player, c_PB_Nexus));
+        }
+    } else {
+        NG_debugBuild("(Automation): Player " + IntToString(player) + " race undetermined");
+    }
+
+    while (i < 20 && highPrioQueue[player - 1][i].unitString != "") {
+        status = NG_HighPrioStatus(player, i);
+        //if(status == NG_BuildStatus_Possible){//Possible
+        if (highPrioQueue[player - 1][i].unitString == NG_SetImportance) {
+            highPrioQueue[player - 1][i].unitString = "";
+            NG_SetBuildOrderImportance(player, highPrioQueue[player - 1][i].number);
+            highPrioQueue[player - 1][i].number = 0;
+            i = i + 1;
+            continue;
+        }
+        if (highPrioQueue[player - 1][i].number > 0) {
+            // If Warping is possible and we are attacking
+            built = false;
+            unitString = highPrioQueue[player - 1][i].unitString;
+            if (PlayerRace(player) == c_RaceStringProtoss && (unitString == c_PU_Zealot || unitString == c_PU_Adept || unitString == c_PU_DarkTemplar || unitString == c_PU_HighTemplar || unitString == c_PU_Sentry || unitString == c_PU_Stalker)) {
+                if (PlayerGetPropertyInt(player, c_playerPropMinerals) >= UnitTypeGetProperty(unitString, c_unitCostMinerals) && PlayerGetPropertyInt(player, c_playerPropVespene) >= UnitTypeGetProperty(unitString, c_unitCostVespene)) {
+                    if (NG_getProxyPoint(player) != null && NG_getWarpGateOffCooldownCount(player) != 0) {
+                        if (NG_getCombatState(player) != 0) { // const int NG_c_cs_defend = 0;
+                            if (NG_warpToProxy(player, unitString)) {
+                                built = true;
+                                highPrioQueue[player - 1][i].number -= 1;
+                                if (highPrioQueue[player - 1][i].number == 0) {
+                                    highPrioQueue[player - 1][i].addedToStock = 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!built) { //build normally
+                NG_BuildUnit(player, highPrioQueue[player - 1][i].unitString, highPrioQueue[player - 1][i].number);
+                //curBuildOrder[player-1][i].addedToStock = 1;
+            }
+        }
+
+        i = i + 1;
+    }
+    i = 0;
+    while (i < 100 && curBuildOrder[player - 1][i].unitString != "") {
+
+        status = NG_BuildStatus(player, i);
+        if (curBuildOrder[player - 1][i].addedToStock == 0) {
+
+            if (curBuildOrder[player - 1][i].unitString == NG_SetAllinChance) {
+                if (curBuildOrder[player - 1][i].number >= 0) {
+                    g_NG_AllinChance[player - 1] = curBuildOrder[player - 1][i].number;
+                    NG_debugBuild("Allin Chance for Player " + IntToString(player) + " set to " + IntToString(curBuildOrder[player - 1][i].number));
+                    curBuildOrder[player - 1][i].number = -1;
+                }
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_SetImportance) {
+                if (curBuildOrder[player - 1][i].number >= 0) {
+                    NG_SetBuildOrderImportance(player, curBuildOrder[player - 1][i].number);
+                    curBuildOrder[player - 1][i].number = -1;
+                }
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_BO_SetAutoWorkers) {
+                if (curBuildOrder[player - 1][i].number != 0) {
+                    SetAutoWorkers(player, true);
+                    NG_debugBuild("AutoWorkers for Player " + IntToString(player) + " now On!");
+                } else {
+                    SetAutoWorkers(player, false);
+                    NG_debugBuild("AutoWorkers for Player " + IntToString(player) + " now Off!");
+                }
+                curBuildOrder[player - 1][i].addedToStock = 1;
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_BO_SetAutoSupply) {
+                if (curBuildOrder[player - 1][i].number != 0) {
+                    SetAutoSupply(player, true);
+                    NG_debugBuild("AutoSupply for Player " + IntToString(player) + " now On!");
+                } else {
+                    SetAutoSupply(player, false);
+                    NG_debugBuild("AutoSupply for Player " + IntToString(player) + " now Off!");
+                }
+                curBuildOrder[player - 1][i].addedToStock = 1;
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_BO_SetAutoExpand) {
+                if (curBuildOrder[player - 1][i].number != 0) {
+                    SetAutoExpand(player, true);
+                    NG_debugBuild("AutoExpand for Player " + IntToString(player) + " now On!");
+                } else {
+                    SetAutoExpand(player, false);
+                    NG_debugBuild("AutoExpand for Player " + IntToString(player) + " now Off!");
+                }
+                curBuildOrder[player - 1][i].addedToStock = 1;
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_SetFin) {
+                SetAutoWorkers(player, true);
+                SetAutoExpand(player, true);
+                SetAutoSupply(player, true);
+                NG_SetBuildOrderImportance(player, 0);
+                curBuildOrder[player - 1][i].addedToStock = 1;
+                boFinished[player - 1] = true;
+                NG_debugBuild("BO Fin for Player " + IntToString(player));
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_BO_SetAggro) {
+
+                NG_debugBuild("Aggro for Player " + IntToString(player) + " now at " + IntToString(curBuildOrder[player - 1][i].number));
+                NG_SetAggroLevel(player, curBuildOrder[player - 1][i].number);
+                curBuildOrder[player - 1][i].addedToStock = 1;
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_BO_SendScout) {
+
+                NG_spyStartScouting(player);
+                NG_debugBuild("Player " + IntToString(player) + " now starts scouting");
+
+                curBuildOrder[player - 1][i].addedToStock = 1;
+                i = i + 1;
+                continue;
+            } else if (curBuildOrder[player - 1][i].unitString == NG_BO_ProxyPylon) {
+                // ProxyPylon
+                if (PlayerGetPropertyInt(player, c_playerPropMinerals) >= 150) {
+                    NG_proxyPylon(player);
+                    curBuildOrder[player - 1][i].addedToStock = 1;
+                    NG_debugBuild("ProxyPylon for " + IntToString(player));
+                }
+                i = i + 1;
+                continue;
+            }
+        }
+        if (status == NG_BuildStatus_Possible) {	//Possible
+            // If Warping is possible and we are attacking
+            built = false;
+            unitString = curBuildOrder[player - 1][i].unitString;
+            if (PlayerRace(player) == c_RaceStringProtoss && (unitString == c_PU_Zealot || unitString == c_PU_Adept || unitString == c_PU_DarkTemplar || unitString == c_PU_HighTemplar || unitString == c_PU_Sentry || unitString == c_PU_Stalker)) {
+                if (PlayerGetPropertyInt(player, c_playerPropMinerals) >= UnitTypeGetProperty(unitString, c_unitCostMinerals) && PlayerGetPropertyInt(player, c_playerPropVespene) >= UnitTypeGetProperty(unitString, c_unitCostVespene)) {
+                    if (NG_getProxyPoint(player) != null && NG_getWarpGateOffCooldownCount(player) != 0) {
+                        if (NG_getCombatState(player) != 0) { // const int NG_c_cs_idle = 0;
+                            if (NG_warpToProxy(player, unitString)) {
+                                built = true;
+                                curBuildOrder[player - 1][i].number -= 1;
+                                if (curBuildOrder[player - 1][i].number == 0) {
+                                    curBuildOrder[player - 1][i].addedToStock = 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!built) { //build normally
+                //NG_debugInfo("x");
+                NG_BuildUnit(player, unitString, curBuildOrder[player - 1][i].number);
+                //curBuildOrder[player-1][i].addedToStock = 1;
+            }
+        }
+        if ((status != NG_BuildStatus_Done && status != NG_BuildStatus_UnderConstruction) && curBuildOrder[player - 1][i].blockNext) {
+            //NG_debugBuild("Waiting for Build Pos to be finished (Player "+IntToString(player)+")");
+            break;
+        }
+        i = i + 1;
+    }
+    if (mostImportantBuilding[player - 1].number > 0 && mostImportantBuilding[player - 1].unitString != "" && frameCounter[player - 1] % 2 == 0) {
+        AISetStock(player, mostImportantBuilding[player - 1].number, mostImportantBuilding[player - 1].unitString);
+    }
+    if (GetAutoSupply(player)) {
+        NG_AutoSupply(player);
+        //DebugAI("Reactivate Auto Supply");
+    }
+    i = 0;
+    while (i < 20) {
+        if (!(instaBuild[player - 1][i].number <= 0 || instaBuild[player - 1][i].unitString == "")) {
+            AISetStock(player, instaBuild[player - 1][i].number, instaBuild[player - 1][i].unitString);
+        }
+        i += 1;
+    }
+
+    if (boFinished[player - 1] && frameCounter[player - 1] % 200 == 0) {
+        NG_SetAggroLevel(player, NG_GetAggroLevel(player) + 1);
+    }
+
+    //Detectionthread
+    if (NG_GetBurnLevelMinerals(player) > 1 && NG_GetBurnLevelVespene(player) > 1) {
+        if (NG_CountQueued(player, detectorString) + AIKnownUnitCount(player, player, detectorString) <= 0) {
+            NG_TryBuildCounter(player, detectorString, 1);
+        }
+    }
+
+// Determine if BO is not functional and lower it's importance
+    if (GetBoImportance(player) > 50) {
+        if ((NG_GetBurnLevelMinerals(player) > 2 && NG_GetPlayerMinerals(player) > 800) || (NG_GetBurnLevelVespene(player) > 2 && NG_GetPlayerVespene(player) > 400)) {
+            //NG_SetBuildOrderImportance(player, GetBoImportance(player) - 1);
+            NG_debugBuild("This Build Order is not functional!");
+        }
+    }
+
+    if ((NG_GetBurnLevelMinerals(player) > MinMineralSuperburnerLevel[player - 1] && NG_GetBurnLevelVespene(player) > MinVespeneSuperburnerLevel[player - 1]) || NG_GetBurnLevelMinerals(player) > 10 || NG_GetBurnLevelVespene(player) > 10) {
+        NG_InstaBuilder(player);
+        NG_debugBuild("Insta Builder");
+        //DebugAI("Insta Builder is deactivated");
+    }
+}

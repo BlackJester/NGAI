@@ -1,0 +1,178 @@
+struct NG_Response {
+    string fullMatch;
+    string partialMatch;
+    string response;fixed naturalResponseTime;
+};
+
+struct NG_CurrentlyTyping {
+    string sentence;fixed estimatedSendTime;
+};
+
+const int NG_ResponseMaxSize = 20;
+const int NG_CurrentlyTypingSize = 20;
+const int NG_MaxShittalkSize = 10;
+
+const fixed ConquestShittalkCooldown = 450.0;
+const fixed RegularShittalkCooldown = 300.0;
+
+fixed[8][NG_MaxShittalkSize] TalkTimeCounter;
+bool[8] NG_Happy;
+trigger Chattrigger;
+NG_CurrentlyTyping[8][NG_CurrentlyTypingSize] NG_Typing;
+
+NG_Response[8][NG_ResponseMaxSize] NG_ResponseShittalk;
+
+
+string[8][NG_MaxShittalkSize] NG_ShittalkMessages;
+
+void NG_SetPlayerHappy(int player,bool happy){
+    NG_Happy[player-1]=happy;
+}
+
+bool NG_PlayerIsHappy(int player){
+    return NG_Happy[player-1];
+}
+
+void SendPlayerMessage(int player, string message) {
+    text pn = PlayerName(player);
+    if (NG_playerIsNGAI(player)) {
+        pn = StringToText(NG_GetCommanderName(player));
+    }
+    UIDisplayMessage(PlayerGroupAll(), c_messageAreaChat, StringToText("[All] ") + TextWithColor(pn, libNtve_gf_ConvertPlayerColorToColor(PlayerGetColorIndex(player, false))) + StringToText(": " + message));
+}
+
+void NG_AddShittalk(int player, string sentence, int index) {
+    NG_ShittalkMessages[player - 1][index] = sentence;
+}
+
+void NG_Talk(int player, int index) {
+    if (NG_ShittalkMessages[player - 1][index] != null) {
+        SendPlayerMessage(player, NG_ShittalkMessages[player - 1][index]);
+    }
+
+}
+
+void NG_ConquestShittalk(int player) {
+    if (TalkTimeCounter[player - 1][NG_c_st_ConquestIndex] < GameGetMissionTime()) {
+        TalkTimeCounter[player - 1][NG_c_st_ConquestIndex] = GameGetMissionTime() + ConquestShittalkCooldown;
+        NG_Talk(player, NG_c_st_ConquestIndex);
+    }
+}
+
+void NG_BaseUnderAttackShittalk(int player) {
+    if (TalkTimeCounter[player - 1][NG_c_st_BaseUnderAttackIndex] < GameGetMissionTime()) {
+        TalkTimeCounter[player - 1][NG_c_st_BaseUnderAttackIndex] = GameGetMissionTime() + RegularShittalkCooldown;
+        NG_Talk(player, NG_c_st_BaseUnderAttackIndex);
+    }
+}
+
+void NG_LostAWShittalk(int player) {
+    if (TalkTimeCounter[player - 1][NG_c_st_LostAWIndex] < GameGetMissionTime()) {
+        TalkTimeCounter[player - 1][NG_c_st_LostAWIndex] = GameGetMissionTime() + RegularShittalkCooldown;
+        NG_Talk(player, NG_c_st_LostAWIndex);
+    }
+}
+
+void NG_RetreatShittalk(int player) {
+    if (TalkTimeCounter[player - 1][NG_c_st_RetreatIndex] < GameGetMissionTime()) {
+        TalkTimeCounter[player - 1][NG_c_st_RetreatIndex] = GameGetMissionTime() + RegularShittalkCooldown;
+        NG_Talk(player, NG_c_st_RetreatIndex);
+    }
+}
+
+void NG_TypeMessage(int player, string message, fixed typeTime) {
+    fixed estimatedTime = GameGetMissionTime();
+    int i = 0;
+    int freeIndex = -1;
+    while (i < NG_CurrentlyTypingSize) {
+        if (NG_Typing[player - 1][i].estimatedSendTime > estimatedTime) {
+            estimatedTime = NG_Typing[player - 1][i].estimatedSendTime;
+        } else if (NG_Typing[player - 1][i].estimatedSendTime == 0.0) {
+            freeIndex = i;
+        }
+
+        i += 1;
+    }
+    if (freeIndex != -1) {
+        NG_Typing[player - 1][freeIndex].estimatedSendTime = estimatedTime + typeTime;
+        NG_Typing[player - 1][freeIndex].sentence = message;
+    }
+}
+
+void NG_DoShittalkLoop(int player) {
+    int i = 0;
+    while (i < NG_CurrentlyTypingSize) {
+        if (NG_Typing[player - 1][i].sentence != "" && NG_Typing[player - 1][i].estimatedSendTime != 0.0 && GameGetMissionTime() > NG_Typing[player - 1][i].estimatedSendTime) {
+            SendPlayerMessage(player, NG_Typing[player - 1][i].sentence);
+            NG_Typing[player - 1][i].sentence = "";
+            NG_Typing[player - 1][i].estimatedSendTime = 0.0;
+        }
+        i += 1;
+    }
+}
+
+bool chat_func(bool testConds, bool runActions) {
+    return NG_CheckResponses(EventChatMessage(false));
+
+}
+
+void NG_initShittalkTrigger() {
+    Chattrigger = TriggerCreate("chat_func");
+    TriggerAddEventChatMessage(Chattrigger, c_playerAny, "", false);
+
+}
+
+void NG_AddResponse(int player, string response, string partialMatch, string fullMatch, fixed time) {
+    int i = 0;
+    while (i < NG_ResponseMaxSize) {
+        if (NG_ResponseShittalk[player - 1][i].response == "") {
+            NG_ResponseShittalk[player - 1][i].response = response;
+            NG_ResponseShittalk[player - 1][i].fullMatch = fullMatch;
+            NG_ResponseShittalk[player - 1][i].partialMatch = partialMatch;
+            NG_ResponseShittalk[player - 1][i].naturalResponseTime = time;
+            return;
+        }
+        i += 1;
+    }
+}
+
+void NG_initShittalk(int player) {
+    int i = 0;
+    while (i < NG_ResponseMaxSize) {
+        NG_ResponseShittalk[player - 1][i].response = "";
+        i += 1;
+    }
+}
+
+bool NG_CheckResponses(string message) {
+    int i = 0;
+    int player = 0;
+    bool sendMessage = false;
+    bool r = false;
+    while (player < 8) {
+        if (!NG_playerIsNGAI(player)) {
+            player += 1;
+            continue;
+        }
+        i = 0;
+        while (i < NG_ResponseMaxSize) {
+            if (NG_ResponseShittalk[player - 1][i].response == "") {
+                break;
+            }
+            sendMessage = true;
+            if (NG_ResponseShittalk[player - 1][i].fullMatch != "" && NG_ResponseShittalk[player - 1][i].fullMatch != message) {
+                sendMessage = false;
+            }
+            if (NG_ResponseShittalk[player - 1][i].partialMatch != "" && (!StringContains(message, NG_ResponseShittalk[player - 1][i].partialMatch, c_stringAnywhere, c_stringNoCase))) {
+                sendMessage = false;
+            }
+            if (sendMessage) {
+                NG_TypeMessage(player, NG_ResponseShittalk[player - 1][i].response, NG_ResponseShittalk[player - 1][i].naturalResponseTime);
+                r = true;
+            }
+            i += 1;
+        }
+        player += 1;
+    }
+    return r;
+}

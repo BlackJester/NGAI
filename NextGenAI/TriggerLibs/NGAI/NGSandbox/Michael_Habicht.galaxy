@@ -1,0 +1,75 @@
+// NOTHING YET
+void KJ_StalkerAI_4(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    int i;
+    unit target;
+    unit tmpunit;
+    fixed vitshield = 200.0;
+    fixed focusThreshold = 120.0;
+    fixed dist = 50;
+    bool targetfound = false;
+    point kitefrom;
+    point kiteto;
+    unitfilter uf;
+    unitgroup ug;
+    unitgroup friendlyStalkers;
+    friendlyStalkers = UnitGroup(c_PU_Stalker, player, RegionCircle(UnitGetPosition(aiUnit), 10), UnitFilter(0, 0, 0, 0), c_noMaxCount);
+    scanGroup = UnitGroup(null, player % 2 + 1, RegionCircle(UnitGetPosition(aiUnit), AIUnitInt(player, UnitGetType(aiUnit), c_fieldSightRange) - 1), null, c_noMaxCount);
+    //Kite
+    if (AIUnitIsInCombat(aiUnit) || AbilityCommandGetAbility(OrderGetAbilityCommand(UnitOrder(aiUnit, 0))) == c_AB_Attack) {
+        if (AIUnitGroupHasMelee(scanGroup) && UnitGetDamageDealtTime(aiUnit) <= 1.40 && UnitGetPropertyInt(aiUnit, c_unitPropVitalityPercent, c_unitPropCurrent) < 80) {
+            kitefrom = UnitGroupCenterOfGroup(scanGroup);
+            kiteto = PointAlongLine(UnitGetPosition(aiUnit), kitefrom, -0.5);
+            ord = AICreateOrder(player, c_AB_Move, 0);
+            OrderSetTargetPoint(ord, kiteto);
+            AICastStandard(aiUnit, ord, c_noMarker, c_castRetreat);
+            return;
+        }
+        //Attack Logic
+        for (i = 1; i <= UnitGroupCount(scanGroup, c_unitCountAlive); i += 1) {
+            //focus low targets
+            tmpunit = UnitGroupUnit(scanGroup, i);
+            if (UnitInRangeAndAbleToAttackTarget(aiUnit, tmpunit)) {
+                if (UnitGetPropertyInt(tmpunit, c_unitPropVitalityPercent, c_unitPropCurrent) + UnitGetPropertyInt(tmpunit, c_unitPropShieldsPercent, c_unitPropCurrent) <= focusThreshold) {
+                    if (UnitGetPropertyInt(tmpunit, c_unitPropVitalityPercent, c_unitPropCurrent) + UnitGetPropertyInt(tmpunit, c_unitPropShieldsPercent, c_unitPropCurrent) < vitshield) {
+                        if (DistanceBetweenPoints(UnitGetPosition(tmpunit), UnitGetPosition(aiUnit)) < dist) {
+                            dist = DistanceBetweenPoints(UnitGetPosition(tmpunit), UnitGetPosition(aiUnit));
+                            vitshield = UnitGetPropertyInt(tmpunit, c_unitPropVitalityPercent, c_unitPropCurrent) + UnitGetPropertyInt(tmpunit, c_unitPropShieldsPercent, c_unitPropCurrent);
+                            target = tmpunit;
+                            targetfound = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+        }
+
+        if (targetfound) {
+            ord = AICreateOrder(player, c_AB_Attack, 0);
+            OrderSetTargetPoint(ord, UnitGetPosition(target));
+            AICast(aiUnit, ord, c_noMarker, c_castHold);
+            return;
+        } else if (UnitGroupCount(scanGroup, c_unitCountAlive) >= 1) {
+            //Attack first target in range
+            ord = AICreateOrder(player, c_AB_Attack, 0);
+
+            for (i = 1; i <= UnitGroupCount(scanGroup, c_unitCountAlive); i += 1) {
+                if (UnitInRangeAndAbleToAttackTarget(aiUnit, UnitGroupUnit(scanGroup, i))) {
+                    OrderSetTargetPoint(ord, UnitGetPosition(UnitGroupUnit(scanGroup, i)));
+                    break;
+                }
+            }
+            AICast(aiUnit, ord, c_noMarker, c_castHold);
+            return;
+        }
+    }
+//    } else {
+//        //regroup logic
+//        ord = AICreateOrder(player, c_AB_Move, 0);
+//        OrderSetTargetPoint(ord, UnitGroupCenterOfGroup(friendlyStalkers));
+//        AICast(aiUnit, ord, c_noMarker, c_castHold);
+//        return;
+//    }
+    return;
+}

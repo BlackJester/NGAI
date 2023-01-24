@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<Catalog>
+    <CUnit id="Roach">
+        <TauntDuration index="Dance" value="0"/>
+    	<TacticalAIThink value="AIThinkRoach"/>
+    </CUnit>
+    <CUnit id="Stalker">
+    	<TacticalAIThink value="AIThinkStalker"/>
+    </CUnit>
+    <CUnit id="Phoenix">
+    	<TacticalAIThink value="AIThinkPhoenix"/>
+    </CUnit>
+</Catalog>

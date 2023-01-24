@@ -1,0 +1,25 @@
+// Sandboxfile Uwe
+
+void NG_CreateProtossTestArmy(int player){
+    point spawnLocation = NG_getRallyPoint(player);
+    unitgroup grp = UnitCreate(1, c_PU_Archon, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0);
+
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Adept, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Carrier, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Colossus, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_DarkTemplar, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_HighTemplar, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Immortal, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Observer, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Oracle, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Phoenix, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Stalker, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Tempest, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_VoidRay, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_WarpPrism, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+    UnitGroupAddUnitGroup(grp, UnitCreate(1, c_PU_Zealot, c_unitCreateIgnorePlacement, player, spawnLocation, 0.0));
+
+    NG_addGroupToWave(player, grp, c_NG_AttackWave);
+
+    DebugAI("spawned an army for player " + IntToString(player) + " at the rally point!");
+}

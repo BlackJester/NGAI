@@ -1,0 +1,176 @@
+//==================================================================================================
+// add consts here
+// use a good convention
+// start with c_
+// ???
+//==================================================================================================
+
+//--------------------------------------------------------------------------------------------------
+//  NG DEBUG FLAGS
+//--------------------------------------------------------------------------------------------------
+const int c_NGD_ALLWAYS_ON  = 0x0007;       // always enabled on start = info, warning, error
+//const int c_NGD_ALLWAYS_ON  = 0xffff;       // always enabled on start = info, warning, error
+
+const int c_NGD_INFO        = 0x0001;       // use this for commands
+const int c_NGD_WARNING     = 0x0002;
+const int c_NGD_ERROR       = 0x0004;
+const int c_NGD_INIT        = 0x0008;       // for init like "NGInit.galaxy"
+// reserve 0x0000 00F0 for BuildManager
+const int c_NGD_BUILD_MANGER = 0x0010;
+// reserve 0x0000 0F00 for SPY
+const int c_NGD_SPY         = 0x0100;
+// reserve 0x0000 F000 for Commander
+const int c_NGD_COMMANDER       = 0x1000;
+const int c_NGD_STATE_MANAGER   = 0x2000;
+// reserve 0x000F 0000 for Combat Manager
+const int c_NGD_COMBAT_MANAGER  = 0x00010000;
+// reserve 0x000F 0000 for Wave
+const int c_NGD_WAVE            = 0x00100000;
+
+//--------------------------------------------------------------------------------------------------
+//  Abil Data
+//--------------------------------------------------------------------------------------------------
+const string c_AB_BuildZerg         = "ZergBuild";              // Ability to Build a Building for Zerg
+const string c_AB_BuildTerran       = "TerranBuild";            // Ability to Build a Building for Terran
+const string c_AB_BuildProtoss      = "ProtossBuild";           // Ability to Build a Building for Protoss
+
+//--------------------------------------------------------------------------------------------------
+// Race Strings / Indices
+//--------------------------------------------------------------------------------------------------
+const string c_RaceStringZerg       = "Zerg";
+const string c_RaceStringTerran     = "Terr";
+const string c_RaceStringProtoss    = "Prot";
+
+// Race Index (useful for arrays)
+const int c_NGUID_INDEX_ZERG        = 0;
+const int c_NGUID_INDEX_PROTOSS     = 1;
+const int c_NGUID_INDEX_TERRAN      = 2;
+const int c_NGUID_COUNT_RACES       = 3;
+
+// Missing unitnames
+
+const string c_TB_BarracksFlying = "BarracksFlying";
+const string c_TB_FactoryFlying = "FactoryFlying";
+const string c_TB_StarportFlying = "StarportFlying";
+
+
+//--------------------------------------------------------------------------------------------------
+// Commander / Buildorder Selector
+//--------------------------------------------------------------------------------------------------
+const int c_NG_MAX_COMMANDER_BO = 10;
+const int c_NG_MAX_COMMANDER_PICK_RETRYS = 100;
+
+// example for using this would be: c_NGC_VERSUS_ZERG_FLAG | c_NGC_VERSUS_TERRAN_FLAG
+//   if a build order is versus zerg and terran.
+const int c_NGC_VERSUS_ZERG_FLAG = 1;
+const int c_NGC_VERSUS_PROTOSS_FLAG = 2;
+const int c_NGC_VERSUS_TERRAN_FLAG = 4;
+const int c_NGC_VERSUS_ALL_FLAG = 7;
+
+//--------------------------------------------------------------------------------------------------
+// Min / Gas - Dialog constants
+//--------------------------------------------------------------------------------------------------
+
+const int c_NG_dialogPlayer_NONE = 0;
+const int c_NG_dialogPlayer_NGAI = 1;
+const int c_NG_dialogPlayer_BLIZ = 2;
+const int c_NG_dialogPlayer_HU   = 3;
+
+
+//--------------------------------------------------------------------------------------------------
+// Spy - config
+//--------------------------------------------------------------------------------------------------
+const fixed c_NG_SPY_TOWN_SCAN_MODIFIER = 5;                   // add to attackpoint if base is scanned
+const fixed c_NG_SPY_BUILDING_SCAN_MODIFIER = 1;               // add to attackpoint if buildung is scanned
+
+//--------------------------------------------------------------------------------------------------
+// AI User Data consts ..
+//--------------------------------------------------------------------------------------------------
+// Edit with void AISetUserInt (int player, int index, int data);
+// NG User Data = NGUD
+// 1 to 256
+const int c_NGUD_INIT 					= 1;
+const int c_NGUD_COMMANDER_MAX_INDEX 	= 2;		    // sets the max commander count for this player
+const int c_NGUD_COMMANDER_INDEX 		= 3;		    // should be set from the user with -init <playernum> <COM_INDEX> <playernum2> <COM_INDEX2>
+const int c_NGUD_RunOnceForEveryAI      = 256;          // this shouldnt change anything inside BlizzAI
+
+//--------------------------------------------------------------------------------------------------
+// NGai Unit IDs
+//--------------------------------------------------------------------------------------------------
+// max index = 19 (count = 19+1)
+const int c_NGUID_COUNT = 23;
+
+// Zerg IDs
+const int c_NGUID_ZU_QUEEN = 0;
+const int c_NGUID_ZU_ZERGLING = 1;
+const int c_NGUID_ZU_BANELING = 2;
+const int c_NGUID_ZU_ROACH = 3;
+const int c_NGUID_ZU_RAVAGER = 4;
+const int c_NGUID_ZU_HYDRALISK = 5;
+const int c_NGUID_ZU_LURKER = 6;
+const int c_NGUID_ZU_INFESTOR = 7;
+const int c_NGUID_ZU_SWARMHOST = 8;
+const int c_NGUID_ZU_ULTRALISK = 9;
+const int c_NGUID_ZU_OVERLORD = 10;
+const int c_NGUID_ZU_OVERSEER = 11;
+const int c_NGUID_ZU_MUTALISK = 12;
+const int c_NGUID_ZU_CORRUPTOR = 13;
+const int c_NGUID_ZU_BROODLORD = 14;
+const int c_NGUID_ZU_VIPER = 15;
+const int c_NGUID_ZU_DRONE = 19;
+const int c_NGUID_ZB_SPINE_CRAWLER = 20;
+const int c_NGUID_ZB_SPORE_CRAWLER = 21;
+
+// Protos IDs
+const int c_NGUID_PU_ZEALOT = 0;
+const int c_NGUID_PU_STALKER = 1;
+const int c_NGUID_PU_SENTRY = 2;
+const int c_NGUID_PU_ADEPT = 3;
+const int c_NGUID_PU_HIGHTEMPLAR = 4;
+const int c_NGUID_PU_DARKTEMPLAR = 5;
+const int c_NGUID_PU_IMMORTAL = 6;
+const int c_NGUID_PU_COLOSSUS = 7;
+const int c_NGUID_PU_DISRUPTOR = 8;
+const int c_NGUID_PU_ARCHON = 9;
+const int c_NGUID_PU_OBSERVER = 10;
+const int c_NGUID_PU_WARPPRISM = 11;
+const int c_NGUID_PU_PHOENIX = 12;
+const int c_NGUID_PU_VOIDRAY = 13;
+const int c_NGUID_PU_ORACLE = 14;
+const int c_NGUID_PU_CARRIER = 15;
+const int c_NGUID_PU_TEMPEST = 16;
+const int c_NGUID_PU_MOTHERSHIP = 17;
+const int c_NGUID_PU_MOTHERSHIPCORE = 18;
+const int c_NGUID_PU_PROBE = 19;
+const int c_NGUID_PB_PHOTON_CANNON = 20;
+
+// Terran IDs
+const int c_NGUID_TU_MARINE = 0;
+const int c_NGUID_TU_MARAUDER = 1;
+const int c_NGUID_TU_REAPER = 2;
+const int c_NGUID_TU_GHOST = 3;
+const int c_NGUID_TU_HELLION = 4;
+const int c_NGUID_TU_SIEGETANK = 5;
+const int c_NGUID_TU_CYCLONE = 6;
+const int c_NGUID_TU_WIDOWMINE = 7;
+const int c_NGUID_TU_THOR = 8;
+// const int c_NGUID_ = 9;  -> empty slot
+const int c_NGUID_TU_VIKING = 10;
+const int c_NGUID_TU_MEDIVAC = 11;
+const int c_NGUID_TU_LIBERATOR = 12;
+const int c_NGUID_TU_RAVEN = 13;
+const int c_NGUID_TU_BANSHEE = 14;
+const int c_NGUID_TU_BATTLECRUISER = 15;
+const int c_NGUID_TU_SCV = 19;
+const int c_NGUID_TB_BUNKER = 20;
+const int c_NGUID_TB_MISSILE_TURRET = 21;
+const int c_NGUID_TB_PLANETARY_FORTRESS = 22;
+
+const int c_NGUID_WORKER = 19;
+
+//Constants for wave management
+const int c_NG_WaitWave = 0;
+const int c_NG_DefendWave = 1;
+const int c_NG_AttackWave = 2;
+const int c_NG_ReinfWave = 3;
+const fixed c_NG_RallyRadius = 20.0;

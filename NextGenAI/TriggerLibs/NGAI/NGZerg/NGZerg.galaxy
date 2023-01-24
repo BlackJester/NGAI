@@ -1,0 +1,12 @@
+//==================================================================================================
+// Galaxy fuer die Zerg KI
+//==================================================================================================
+
+void NG_initZerg() {
+    // add buildOrders to Commander Manager
+    // NG_addZergCommander(NG_Init10PoolBaneling, NG_ZergInitBurner1, "ZergKevin", "10 Pool Baneling", c_NGC_VERSUS_ALL_FLAG);
+    NG_addZergCommander(NG_InitLingRushIntoAir, NG_ZergInitBurnerLingAndAir, "Ling", "Ling Rush Into Air", c_NGC_VERSUS_ALL_FLAG);
+    NG_addZergCommander(NG_InitMacroZerg, NG_ZergInitBurnerGroundArmy, "Marco", "Macro Orientated Zerg", c_NGC_VERSUS_ALL_FLAG);
+    NG_addZergCommander(NG_InitRoachRavager, NG_ZergInitBurnerRoachRavager, "Katie", "Mainly Roaches and Ravagers", c_NGC_VERSUS_ALL_FLAG);
+//    NG_addZergCommander(NG_InitQueentest, NG_ZergInitBurner1, "Queentest (Remove me!)", "Testing Queen Stuff pls remove if chosen", c_NGC_VERSUS_ALL_FLAG);
+}

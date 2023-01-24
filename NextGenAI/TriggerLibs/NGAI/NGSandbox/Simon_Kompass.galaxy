@@ -1,0 +1,21 @@
+//Spawn Spy at enemy base
+
+
+void NG_Spy(int playerid, int enemyplayerid) {
+	int unitcount = 1;
+
+	unitgroup roachSpy = UnitCreate(unitcount, c_PU_Observer, c_unitCreateIgnorePlacement, playerid, PlayerStartLocation (enemyplayerid), 0.0);
+
+
+
+}
+
+void NG_SK_getLightUnits(int player, int enemy) {
+
+    DebugAI("----- Light Units Player:" + IntToString(player) + " Enemy: " + IntToString(enemy) + " -----");
+    DebugAI("----- Known Supply:" + IntToString(NG_spyGetKnownSupply(player, enemy)));
+    DebugAI("----- Light Air-Units:" + FixedToString(NG_spyGetLightAir(player, enemy),0) + "% of supply");
+    DebugAI("----- Light Ground-Units:" + FixedToString(NG_spyGetLightGround(player, enemy),0) + "% of supply");
+
+    DebugAI("---------------------------------");
+}

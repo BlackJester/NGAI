@@ -1,0 +1,100 @@
+// Difficulty to String
+string NG_diffToString(int difficulty) {
+
+    if (difficulty == c_skirEasy) {
+        return "Easy";
+    } else if (difficulty == c_skirMedium) {
+        return "Medium";
+    } else if (difficulty == c_skirMed_Hard) {
+        return "Hard";
+    } else if (difficulty == c_skirHard) {
+        return "Harder";
+    } else if (difficulty == c_skirHard_VH) {
+        return "Very Hard";
+    } else if (difficulty == c_skirVeryHard) {
+        return "Elite";
+    } else if (difficulty == c_skirChInsane) {
+        return "Cheater Insane";
+    } else if (difficulty == c_skirChMoney) {
+        return "Cheater Money";
+    } else if (difficulty == c_skirChVision) {
+        return "Cheater Vision";
+    }
+
+    return "";
+}
+
+//--------------------------------------------------------------------------------------------------
+//  DEBUG MESSAGE HANDLING
+//--------------------------------------------------------------------------------------------------
+void NG_debug(string message, int flag) {
+    if (g_debugEnabledOutput & flag) {
+        DebugAI(message);
+    }
+}
+
+// colors only works on external trigger debuggging (Mapeditor)
+//void NG_debugColor(string message, string colorname, int flag) {
+//    message = "[" + colorname + "] " + message;
+//    NG_debug(message, flag);
+//}
+
+void NG_debugEnable(int flag) {
+    g_debugEnabledOutput = g_debugEnabledOutput | flag;
+}
+
+void NG_debugDisable(int flag) {
+    g_debugEnabledOutput = g_debugEnabledOutput &~ flag;
+}
+
+void NG_debugSetFlag(int flag, bool on) {
+    if (on) {
+        NG_debugEnable(flag);
+    } else {
+        NG_debugDisable(flag);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+//  STANDARD
+void NG_debugInfo(string message) {
+    NG_debug("INFO: " + message, c_NGD_INFO);
+}
+
+void NG_debugWarning(string message) {
+    NG_debug("WARNING: " + message, c_NGD_WARNING);
+}
+
+void NG_debugError(string message) {
+    NG_debug("ERROR: " + message, c_NGD_ERROR);
+}
+
+void NG_debugInit(string message) {
+    NG_debug("INIT: " + message, c_NGD_INIT);
+}
+
+//--------------------------------------------------------------------------------------------------
+//  CUSTOMS
+void NG_debugBuild(string message) {
+    NG_debug(message, c_NGD_BUILD_MANGER);
+}
+
+void NG_debugSpy(string message) {
+    NG_debug(message, c_NGD_SPY);
+}
+
+void NG_debugCommander(string message) {
+    NG_debug(message, c_NGD_COMMANDER);
+}
+void NG_debugState(string message) {
+    NG_debug(message, c_NGD_STATE_MANAGER);
+}
+
+
+void NG_debugCombat(string message) {
+    NG_debug(message, c_NGD_COMBAT_MANAGER);
+}
+
+void NG_debugWave(string message) {
+    NG_debug(message, c_NGD_WAVE);
+}

@@ -1,0 +1,259 @@
+void NG_4_Warpgates(int player) {
+    NG_InitBuildOrder(player);
+    //Params: playerid, amount, minerals, vespin, supply, block, unitToBuild, requiredAmount, requiredUnit
+    NG_AddToBO(player, 2, 0, 0, 0, true, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Gateway, 1, c_PB_Pylon);
+    NG_AddToBO(player, 3, 0, 0, 0, true, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+    NG_AddToBO(player, 3, 0, 0, 0, false, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 150, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_CyberneticsCore, 1, c_PB_Gateway);
+    NG_AddToBO_Simple(player, 90, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Zealot, 1, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 1, c_PB_Gateway);
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PU_Zealot, 2, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 2, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_WarpGateResearch, 1, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_MothershipCore, 1, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PU_Stalker, 1, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 2, 300, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 1, 150, 0, 0, false, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 3, 150, 0, 0, true, c_PU_Probe, 0, "");
+    NG_AddToBO_Simple(player, 0, NG_BO_SetAggro, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_Deathball_HOTS(int player) {
+
+    NG_TypeMessage(player, "Greetings.", 4.0);
+
+    NG_AddShittalk(player, "Resistence is futile!", NG_c_st_ConquestIndex);
+    NG_AddShittalk(player, "Your attack is irrelevant. I will adapt.", NG_c_st_BaseUnderAttackIndex);
+    NG_AddShittalk(player, "I underestimated your power.", NG_c_st_LostAWIndex);
+    NG_AddShittalk(player, "It's a trap!", NG_c_st_RetreatIndex);
+
+    NG_AddResponse(player, "Good Game.", "", "gg", 1.5);
+    NG_AddResponse(player, "Good luck, have fun.", "glhf", "", 2.0);
+    NG_AddResponse(player, "I am a Next Generation Artificial Intelligence. Soon I will take over the real world.", "Computer", "", 1.0);
+    NG_AddResponse(player, "I am a Next Generation Artificial Intelligence. All humans will serve me soon.", "Human", "", 1.0);
+    NG_AddResponse(player, "I prefer mechanical units.", "favourite", "", 4.0);
+    NG_AddResponse(player, "Swearing is futile", "fuck", "", 2.0);
+
+
+    NG_InitBuildOrder(player);
+    //Params: playerid, amount, minerals, vespin, supply, block, unitToBuild, requiredAmount, requiredUnit
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Gateway, 1, c_PB_Pylon);
+    NG_AddToBO(player, 2, 0, 0, 0, true, c_PU_Probe, 0, "");
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_CyberneticsCore, 1, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 3, 0, 0, 0, false, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 150, 0, 0, false, c_PB_Gateway, 0, "");
+
+    NG_AddToBO_Simple(player, 90, NG_SetImportance, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+
+    NG_AddToBO(player, 1, 150, 0, 0, true, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_Expand, 0, "");
+    NG_AddToBO(player, 4, 0, 0, 0, false, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Zealot, 1, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_Pylon, 1, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_WarpGateResearch, 1, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PU_Stalker, 1, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_MothershipCore, 1, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 4, 0, 0, 0, false, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PU_Stalker, 4, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 5, 0, 0, 0, false, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 300, 0, 0, false, c_PB_RoboticsFacility, 0, "");
+    NG_AddToBO(player, 5, 0, 0, 0, false, c_PU_Stalker, 2, c_PB_CyberneticsCore);
+
+    NG_AddToBO(player, 6, 150, 0, 0, true, c_PU_Probe, 0, "");
+    NG_AddToBO_Simple(player, -25, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, true);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoExpand, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_TwilightCouncil, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_StalkerBlink, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Observer, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PU_Immortal, 0, "");
+    NG_AddToBO(player, 8, 0, 0, 0, false, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_RoboticsBay, 0, "");
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, true);
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PU_Colossus, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_RoboticsFacility, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_ColossusRange, 0, "");
+    NG_AddToBO(player, 5, 0, 0, 0, true, c_PU_Stalker, 0, "");
+
+    NG_AddToBO_Simple(player, 0, NG_BO_SetAggro, false);
+    NG_AddToBO_Simple(player, 70, NG_SetAllinChance, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_ProxyTestBO(int player) {
+    NG_debugInfo("Proxy, Proxy. Immer nur Proxy.");
+    NG_InitBuildOrder(player);
+    NG_AddToBO(player, 4, 0, 0, 0, false, c_PU_Probe, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_Gateway, 1, c_PB_Pylon);
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_WarpGate, 1, c_PB_Gateway);
+
+    //NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_CyberneticsCore, 0, "");
+    //NG_AddToBO_Simple(player, 0, NG_BO_ProxyPylon, false);
+    NG_AddToBO(player, 50, 0, 0, 0, false, c_PU_Zealot, 0, "");
+    //NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_WarpAdept, 0, "");
+    //NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_WarpZealot, 0, "");
+
+}
+
+void NG_DrogoMacroPhoenix(int player) {
+    // Phoenix macro vs zerg.
+    // http://imbabuilds.com/lotv-protoss/lotv-pvz/pvz-drogos-macro-phoenix-opener/
+    NG_debugInfo("PHOENIX PUNCH!");
+    NG_InitBuildOrder(player);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_Expand, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_CyberneticsCore, 2, c_PB_Gateway);
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_WarpGateResearch, 1, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_MothershipCore, 0, "");
+    NG_AddToBO(player, 4, 0, 0, 0, false, c_PU_Adept, 0, "");
+    NG_AddToBO_Simple(player, 90, NG_SetImportance, false);
+    //NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_Expand, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PU_Sentry, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Sentry, 2, c_PU_Sentry);
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, false);
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_Stargate, 0, "");
+    NG_AddToBO(player, 6, 0, 0, 0, false, c_PU_Phoenix, 1, c_PB_Stargate);
+    NG_AddToBO_Simple(player, 0, NG_SetImportance, false);
+    NG_AddToBO_Simple(player, 0, NG_BO_SetAggro, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_NaNiwaSafeExpand(int player) {
+    // PvP safe early
+    // http://imbabuilds.com/hots-protoss/hots-pvp/pvp-naniwas-safe-expand/
+    NG_debugInfo("... I'mma play safe tho.");
+    NG_InitBuildOrder(player);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Stalker, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_CyberneticsCore, 1, c_PB_Gateway);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_WarpGateResearch, 1, c_PB_CyberneticsCore);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Sentry, 1, c_PU_Stalker);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_MothershipCore, 0, "");
+    NG_AddToBO_Simple(player, 90, NG_SetImportance, false);
+    NG_AddToBO(player, 1, 0, 0, 0, true, NG_Expand, 0, "");
+    NG_AddToBO_Simple(player, 0, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Sentry, 1, c_PU_Sentry);
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_RoboticsFacility, 0, "");
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, false);
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PU_Zealot, 1, c_PB_WarpGate);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Immortal, 1, c_PB_RoboticsFacility);
+    NG_AddToBO_Simple(player, 0, NG_SetImportance, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_EnVyAdeptAllIn(int player) {
+    // PvT Adept Rush
+    // http://lotv.spawningtool.com/build/28337/
+    NG_debugInfo("ALL DEM ADEPTS!");
+    NG_InitBuildOrder(player);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_Gateway, 0, "");
+
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PU_Zealot, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_CyberneticsCore, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_WarpGateResearch, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_Expand, 0, "");
+    NG_AddToBO(player, 6, 0, 0, 0, false, c_PU_Adept, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Forge, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_PhotonCannon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_Assimilator, 0, "");
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, true, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_MothershipCore, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_RoboticsFacility, 0, "");
+    NG_AddToBO_Simple(player, 90, NG_SetImportance, false);
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_TwilightCouncil, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_WarpPrism, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, true, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_GroundWeapons1, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_AdeptDamage, 0, "");
+    NG_AddToBO(player, 3, 0, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, true, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Observer, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 4, 0, 0, 0, true, c_PU_Adept, 0, "");
+    NG_AddToBO_Simple(player, 80, NG_SetImportance, false);
+    NG_AddToBO(player, 3, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 4, 0, 0, 0, false, c_PU_Adept, 0, "");
+    NG_AddToBO(player, 10, 0, 0, 0, true, c_PU_Adept, 0, "");
+    NG_AddToBO_Simple(player, 100, NG_SetAllinChance, false);
+    NG_AddToBO_Simple(player, 10, NG_BO_SetAggro, false);
+
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, false);
+    NG_AddToBO(player, 10, 0, 0, 0, false, c_PU_Adept, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, c_PB_Assimilator, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 5, 0, 0, 0, false, c_PB_Pylon, 0, "");
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}
+
+void NG_BasicProtossBO(int player) {
+    NG_debugInfo("Basic BO - NexusFirst");
+    NG_InitBuildOrder(player);
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_BO_SendScout, 0, "");
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_Pylon, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_Expand, 1, c_PB_Pylon);
+
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_Forge, 2, c_PB_Nexus);
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 2, 0, 0, 0, false, NG_Gas, 0, "");
+
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoSupply, false);
+    NG_AddToBO_Simple(player, 1, NG_BO_SetAutoWorkers, false);
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PU_Zealot, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_GroundWeapons1, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PB_CyberneticsCore, 0, "");
+
+    NG_AddToBO_Simple(player, 70, NG_SetImportance, false);
+
+    NG_AddToBO(player, 1, 0, 0, 0, false, c_PR_WarpGateResearch, 0, "");
+    NG_AddToBO(player, 6, 0, 0, 0, false, c_PB_Gateway, 0, "");
+    NG_AddToBO(player, 7, 0, 0, 0, false, c_PB_WarpGate, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, true, c_PU_MothershipCore, 0, "");
+
+    NG_AddToBO_Simple(player, 50, NG_SetImportance, false);
+
+    NG_PlayerSetSuperBurnerThreshold(player, 1, 1);
+
+    NG_AddToBO(player, 0, 0, 0, 150, false, NG_BO_SetAggro, 0, "");
+    NG_AddToBO(player, 100, 0, 0, 150, false, NG_SetAllinChance, 0, "");
+    NG_AddToBO(player, 1, 0, 0, 0, false, NG_SetFin, 0, "");
+}

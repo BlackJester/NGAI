@@ -1,0 +1,20 @@
+void NGRemkoTest(int playerid, string unitcount){
+	// get good spawn point - playerid's base
+//	point spawn = PlayerStartLocation(playerid);
+//
+//	// spawn all units from Barracks
+//	UnitCreate(StringToInt(unitcount), c_TU_Marine , c_unitCreateIgnorePlacement, playerid,spawn, 0.0);
+//	UnitCreate(StringToInt(unitcount), c_TU_Marauder , c_unitCreateIgnorePlacement, playerid, spawn, 0.0);
+//	UnitCreate(StringToInt(unitcount), c_TU_Reaper , c_unitCreateIgnorePlacement, playerid, spawn, 0.0);
+//	UnitCreate(StringToInt(unitcount), c_TU_Ghost , c_unitCreateIgnorePlacement, playerid, spawn, 0.0);
+    DebugAI(IntToString(UnitTypeGetCost(c_ZB_BanelingNest, c_unitCostVespene)));
+    DebugAI(IntToString(UnitTypeGetCost(c_ZB_BanelingNest, c_unitCostMinerals)));
+    DebugAI(IntToString(UnitTypeGetCost(c_ZB_BanelingNest, c_unitCostSumMineralsVespene)));
+
+    DebugAI(IntToString(UnitTypeGetCost(c_ZR_BanelingSpeed, c_unitCostSumMineralsVespene)));
+    DebugAI(IntToString(UnitTypeGetCost(c_ZR_BanelingSpeed, c_unitCostSumMineralsVespene)));
+    DebugAI(IntToString(UnitTypeGetCost(c_ZR_BanelingSpeed, c_unitCostSumMineralsVespene)));
+
+
+
+}

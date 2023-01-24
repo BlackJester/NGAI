@@ -1,0 +1,243 @@
+
+//Prints the camera position of the player
+void NG_MS_GetCameraPosition(int playerId) {
+    fixed x;
+    fixed y;
+    point camPos = CameraGetTarget(playerId);
+
+    x = PointGetX(camPos);
+    y = PointGetY(camPos);
+
+    DebugAI("CameraPosition: (" + FixedToString(x, 2) + "," + FixedToString(y, 2) + ")");
+}
+
+//Destroys all units around a point
+void NG_MS_ClearUnitsAt(point center, fixed radius) {
+    region clearRegion;
+    unitgroup groupToBeCleared;
+
+    clearRegion = RegionCircle(center, radius);
+
+    groupToBeCleared = UnitGroup(null, c_playerAny, clearRegion, null, c_noMaxCount);
+
+    UnitGroupLoopBegin(groupToBeCleared);
+    while (!UnitGroupLoopDone()) {
+        UnitKill(UnitGroupLoopCurrent());
+        UnitGroupLoopStep();
+    }
+    UnitGroupLoopEnd();
+}
+
+void MS_StalkerAI_5(int player, unit aiUnit, unitgroup scanGroup) {
+    order ord;
+    order currentOrder;
+    point targetPoint;
+    unit targetUnit;
+    unit unitToCheck;
+    unitgroup otherStalkers;
+    unitgroup enemyStalkers;
+    int scanCount;
+    int lowestHealth;
+    int healthToCheck;
+    int i;
+    bool debug;
+
+    lowestHealth = 101;
+
+    debug = true;
+    currentOrder = UnitOrder(aiUnit, 0);
+    scanCount = UnitGroupCount(scanGroup, c_unitCountAll);
+
+//    if(AbilityCommandGetAbility(OrderGetAbilityCommand(currentOrder)) == c_AB_Move){
+//        AISetCooldown(aiUnit,)
+//    }
+
+    if (scanCount == 0 || !AIUnitIsInCombat(aiUnit)) {
+        otherStalkers = AIFindUnits(player, c_PU_Stalker, UnitGetPosition(aiUnit), 8, c_noMaxCount);
+        i = 0;
+        for (; i < UnitGroupCount(otherStalkers, 0); i = i + 1) {
+            unitToCheck = UnitGroupUnit(scanGroup, i);
+
+            if (AIUnitIsInCombat(unitToCheck)) {
+                ord = AICreateOrder(player, c_AB_Attack, 0);
+                OrderSetTargetPoint(ord, UnitGetPosition(unitToCheck));
+                AICast(aiUnit, ord, c_noMarker, c_castHold);
+
+                if (debug) {
+                    DebugAI("Back into da fight");
+                }
+
+                return;
+            }
+        }
+
+        return;
+    }
+
+    if (AITactCooldownAllow(aiUnit, c_tactTimerFirst) && UnitGetPropertyInt(aiUnit, c_unitPropLifePercent, true) < 70) {
+        ord = AICreateOrder(player, c_AB_Move, 0);
+        OrderSetTargetPoint(ord, PointAlongLine(UnitGetPosition(aiUnit), UnitGroupCenterOfGroup(scanGroup), -3.5));
+//        AICast(aiUnit,ord,c_noMarker,c_castHold);
+        AICastCooldown(aiUnit, ord, c_noMarker, c_castHold, c_tactTimerFirst, 5);
+        if (debug) {
+            DebugAI("Running away");
+        }
+        return;
+    }
+
+    if (false && (scanCount > 0) && DistanceBetweenPoints(UnitGetPosition(aiUnit), UnitGroupCenterOfGroup(scanGroup)) > 5.5) {
+        ord = AICreateOrder(player, c_AB_Move, 0);
+        OrderSetTargetPoint(ord, PointAlongLine(UnitGetPosition(aiUnit), UnitGroupCenterOfGroup(scanGroup), 0.5));
+        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        if (debug) {
+            DebugAI("Getting Closer");
+        }
+        return;
+    }
+
+    enemyStalkers = AIFindUnits((player % 2) + 1, c_PU_Stalker, UnitGetPosition(aiUnit), 6, c_noMaxCount);
+    scanCount = UnitGroupCount(enemyStalkers, c_unitCountAll);
+
+    while (scanCount > 0) {
+        unitToCheck = UnitGroupUnit(enemyStalkers, scanCount);
+        scanCount = scanCount - 1;
+
+        healthToCheck = UnitGetPropertyInt(unitToCheck, c_unitPropLifePercent, true);
+
+        if (lowestHealth > healthToCheck) {
+            lowestHealth = healthToCheck;
+            targetUnit = unitToCheck;
+        }
+
+        if (lowestHealth < 80) {
+            ord = AICreateOrder(player, c_AB_Attack, 0);
+            OrderSetTargetUnit(ord, targetUnit);
+            AICast(aiUnit, ord, c_noMarker, c_castHold);
+            if (debug) {
+                DebugAI("Snip Snip");
+            }
+            return;
+        }
+    }
+}
+
+void NG_MS_ThinkTests(int player, unit aiUnit, unitgroup scangroup) {
+    order ord;
+    order hold;
+    order moveZ;
+    order helpOrder;
+    abilcmd cmd;
+    point p;
+    int scanCount;
+    unit unitToCheck;
+    unitgroup group;
+
+    return;
+
+    if (UnitOrderCount(aiUnit) > 0) {
+        helpOrder = UnitOrder(aiUnit, 0);
+
+        cmd = AbilityCommand(c_AB_Attack, 0);
+
+        if (cmd == OrderGetAbilityCommand(helpOrder)) {
+            DebugAI("Run away!!!");
+            moveZ = AICreateOrder(player, c_AB_Move, 0);
+            OrderSetTargetPoint(moveZ, Point(71, 62));
+            AICast(aiUnit, moveZ, c_noMarker, c_castHold);
+        } else {
+            DebugAI("This is not a attack move");
+            DebugAI("Order: " + AbilityCommandGetAbility(OrderGetAbilityCommand(helpOrder)));
+            DebugAI("Currently " + IntToString(UnitOrderCount(aiUnit)) + " Commands");
+        }
+    } else {
+        group = AIFindUnits(((player % 2) + 1), c_PU_Zealot, Point(80, 80), 5, c_noMaxCount);
+
+        if (UnitGroupCount(group, 0) == 0) {
+            DebugAI("No Target");
+            return;
+        }
+
+        unitToCheck = UnitGroupUnit(group, 1);
+
+        ord = AICreateOrder(player, c_AB_Attack, 0);
+
+        //        OrderSetTargetPoint(ord,UnitGetPosition(unitToCheck));
+        OrderSetTargetUnit(ord, unitToCheck);
+        AICast(aiUnit, ord, c_noMarker, c_castHold);
+        DebugAI("Attacking Unit:");
+        TriggerDebugOutput(1, UnitGetName(unitToCheck), true);
+
+    }
+
+    //    if(false && UnitOrderCount(aiUnit)>0 && AIUnitIsInCombat(aiUnit)){
+    //        DebugAI("I have Orders :" + IntToString(UnitOrderCount(aiUnit)));
+    //        ord = AICreateOrder(player,c_AB_BurrowRoachDown,0);
+    //        moveZ = AICreateOrder(player, c_AB_Move,0);
+    //        OrderSetTargetPoint(moveZ,Point(71,62));
+    //        AICast(aiUnit,moveZ,c_noMarker,c_castHold);
+    //        //UnitIssueOrder(aiUnit,ord,c_orderQueueAddToFront);
+    //    } else {
+    //        //DebugAI("No Order :(");
+    //    }
+    //
+    //    scanCount = UnitGroupCount(scanGroup, c_unitCountAll);
+    //    while (scanCount > 0) {
+    //        unitToCheck = UnitGroupUnit(scanGroup, scanCount);
+    //        scanCount = scanCount - 1;
+    //        DebugAI("Found Unit: ");
+    //        TriggerDebugOutput(1, UnitGetName(unitToCheck), true);
+    //    }
+    //    moveZ = AICreateOrder(player, c_AB_Move,0);
+    //
+    //    p = Point(RandomFixed(0,100),RandomFixed(0,100));
+    //
+    //    DebugAI("Random Point: ("+ FixedToString(PointGetX(p),2) +","+FixedToString(PointGetY(p),2)+")");
+    //
+    //    OrderSetTargetPoint(moveZ,p);
+    //
+    //    AICast(aiUnit,moveZ,c_noMarker,c_castHold);
+    //    DebugAI("Roach has Orders:" + IntToString(UnitOrderCount(aiUnit)));
+
+    //burrow?????
+    //if (AIEvalTacticalData(aiUnit, null)) {
+    //    DebugAI("Tactical returned true ...");
+    //       return;
+    //}
+
+    //DebugAI("CheckingHealth:");
+    //DebugAI("Health at:"+ IntToString(UnitGetPropertyInt(aiUnit, c_unitPropLifePercent, c_unitPropCurrent))+"%");
+
+    if (UnitGetPropertyInt(aiUnit, c_unitPropLifePercent, c_unitPropCurrent) < 45) {
+        DebugAI("Dangerous");
+        ord = AICreateOrder(player, c_AB_BurrowRoachDown, 0);
+        //        if (!UnitOrderIsValid(aiUnit, ord)) {
+        //            DebugAI("Not valid!?");
+        //                return;
+        //        }
+        //
+        //        //OrderSetTargetUnit(ord,aiUnit)
+        //
+        //        if (!UnitOrderIsValid(aiUnit, ord)) {
+        //                    DebugAI("Not valid 2!?");
+        //                    return;
+        //        }
+
+        //        DebugAI("Roach has Orders:" + IntToString(UnitOrderCount(aiUnit)));
+        //        if(UnitOrderCount(aiUnit) > 0){
+        //            helpOrder = UnitOrder(aiUnit,0);
+        //
+        //            DebugAI("Altes Command:"+AbilityCommandGetAbility(OrderGetAbilityCommand(helpOrder)));
+        //
+        //            cmd = AbilityCommand(c_AB_BurrowRoachDown, 0);
+        //            OrderSetAbilityCommand(UnitOrder(aiUnit,0), cmd);
+        //            DebugAI("Changed Order");
+        //            DebugAI("Neues Command:"+AbilityCommandGetAbility(OrderGetAbilityCommand(helpOrder)));
+        //        }
+
+        //        DebugAI("BurrowTime");
+        //
+        //        hold = AICreateOrder(player,"MoveHoldPosition",0);
+        //
+        //        AICast(aiUnit,hold,c_noMarker,c_castHold);
+    }
+}

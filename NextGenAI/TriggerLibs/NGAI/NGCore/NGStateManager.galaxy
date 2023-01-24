@@ -1,0 +1,1479 @@
+//====================================================================
+// State Manager/Commander
+//====================================================================
+
+//Notizen aus Sitzung Di, 12.4
+// get Priorities/Agressivity from BO
+// get Information from Spy Manager
+// get theirArmy from Spy Manager
+// get Information from Combat Manager
+// ArmyValue Win Chance
+// Helper: ourArmy getter
+//Struct for Input/Output Army array
+
+const int NG_maxNumberOfDependencies = 6;
+//halb-global
+string[5][NG_maxUnitIndex + 1] NG_unitString;
+
+//local
+string[5][NG_maxUnitIndex + 1] unitDependencies;
+string[5][NG_maxUnitIndex + 1] buildingDependencies;
+armyUnit[5][NG_maxUnitIndex + 1] counterBasic;
+armyUnit[5][NG_maxUnitIndex + 1] counterTech;
+armyUnit[5][NG_maxUnitIndex + 1] sumArmy;
+int[8] NG_currentMaxUnitIndex;
+trigger cyclicCalcTrigger;
+
+bool NG_cyclicCalc(bool testConds, bool runActions) {
+    int playerid = 1;
+    int playerCount = PlayerGroupCount(PlayerGroupActive());
+    for (playerid = 1; playerid <= playerCount; playerid = playerid + 1) {
+        if (NG_playerIsNGAI(playerid)) {
+            NG_counterToEnemy(playerid, null);
+        }
+    }
+    return true;
+}
+
+void NG_initCounterManager(int player) {
+    // Every <seconds> InGame Seconds call NG_counterToEnemy
+    fixed seconds = 30.0;
+    cyclicCalcTrigger = TriggerCreate("NG_cyclicCalc");
+    TriggerAddEventTimePeriodic(cyclicCalcTrigger, seconds, c_timeGame);
+}
+
+// Get index for building
+int NG_getBuildingIndex(string unitType) {
+    if (unitType == c_ZB_Hatchery || unitType == c_PB_Nexus || unitType == c_TB_CommandCenter) {
+        return 0;
+    } else if (unitType == c_ZB_SpawningPool || unitType == c_PB_Gateway || unitType == c_TB_Barracks || unitType == c_TB_BarracksFlying) {
+        return 1;
+    } else if (unitType == c_ZB_RoachWarren || unitType == c_PB_CyberneticsCore || unitType == c_TB_GhostAcademy) {
+        return 2;
+    } else if (unitType == c_ZB_BanelingNest || unitType == c_PB_RoboticsFacility || unitType == c_TB_Factory || unitType == c_TB_FactoryFlying) {
+        return 3;
+    } else if (unitType == c_ZB_Lair || unitType == c_PB_RoboticsBay || unitType == c_TB_Starport || unitType == c_TB_StarportFlying) {
+        return 4;
+    } else if (unitType == c_ZB_HydraliskDen || unitType == c_PB_Stargate || unitType == c_TB_Armory) {
+        return 5;
+    } else if (unitType == c_ZB_InfestationPit || unitType == c_PB_TwilightCouncil || unitType == c_TB_FusionCore) {
+        return 6;
+    } else if (unitType == c_ZB_Spire || unitType == c_PB_FleetBeacon || unitType == c_TB_BarracksReactor || unitType == c_TB_BarracksTechLab) {
+        return 7;
+    } else if (unitType == c_ZB_Hive || unitType == c_PB_TemplarArchives || unitType == c_TB_StarportReactor || unitType == c_TB_StarportTechLab) {
+        return 8;
+    } else if (unitType == c_ZB_LurkerDen || unitType == c_PB_DarkShrine || unitType == c_TB_FactoryReactor || unitType == c_TB_FactoryTechLab) {
+        return 9;
+    } else if (unitType == c_ZB_UltraliskCavern || unitType == c_TB_GenericReactor || unitType == c_TB_GenericTechLab) {
+        return 10;
+    } else if (unitType == c_ZB_GreaterSpire) {
+        return 11;
+    } else {
+        return -1;
+    }
+}
+
+// Get index for counter arrays
+int NG_getUnitIndex(string unitType) {
+    if (unitType == c_ZU_Queen || unitType == c_PU_Zealot || unitType == c_TU_Marine) {
+        return 0;
+    } else if (unitType == c_ZU_Zergling || unitType == c_PU_Stalker || unitType == c_TU_Marauder) {
+        return 1;
+    } else if (unitType == c_ZU_Baneling || unitType == c_ZU_BanelingCocoon || unitType == c_PU_Sentry || unitType == c_TU_Reaper) {
+        return 2;
+    } else if (unitType == c_ZU_Roach || unitType == c_PU_Adept || unitType == c_TU_Ghost) {
+        return 3;
+    } else if (unitType == c_ZU_Ravager || unitType == c_PU_HighTemplar || unitType == c_TU_Hellion_Alias || unitType == c_TU_HellionTank || unitType == c_TU_Hellion) {
+        return 4;
+    } else if (unitType == c_ZU_Hydralisk || unitType == c_PU_DarkTemplar || unitType == c_TU_SiegeTank || unitType == c_TU_SiegeTankSieged) {
+        return 5;
+    } else if (unitType == c_ZU_Lurker || unitType == c_PU_Immortal || unitType == c_TU_Cyclone) {
+        return 6;
+    } else if (unitType == c_ZU_Infestor || unitType == c_PU_Colossus || unitType == c_TU_WidowMine || unitType == c_TU_WidowMineActivated || unitType == c_TU_WidowMine_Alias) {
+        return 7;
+    } else if (unitType == c_ZU_SwarmHost || unitType == c_ZU_SwarmHostBurrowed || unitType == c_ZU_SwarmHost_Alias || unitType == c_PU_DisruptorPhased || unitType == c_PU_Disruptor || unitType == c_TU_ThorAP || unitType == c_TU_Thor) {
+        return 8;
+    } else if (unitType == c_ZU_Ultralisk || unitType == c_PU_Archon) { //Terran is empty slot
+        return 9;
+    } else if (unitType == c_PU_Observer || unitType == c_TU_Viking || unitType == c_TU_VikingAir || unitType == c_TU_VikingGnd || unitType == c_TU_Viking_Alias) { // General Air
+    // } else if (unitType == c_ZU_Overlord || unitType == c_ZU_Overlord_Alias || unitType == c_ZU_OverlordTransport || unitType == c_PU_Observer || unitType == c_TU_Viking || unitType == c_TU_VikingAir || unitType == c_TU_VikingGnd || unitType == c_TU_Viking_Alias) { // General Air
+        return 10;
+    } else if (unitType == c_ZU_Overseer || unitType == c_PU_WarpPrism || unitType == c_PU_WarpPrismPhasing || unitType == c_TU_Medivac) {
+        return 11;
+    } else if (unitType == c_ZU_Mutalisk || unitType == c_PU_Phoenix || unitType == c_TU_Liberator || unitType == c_TU_Liberator_Alias || unitType == c_TU_LiberatorAG) {
+        return 12;
+    } else if (unitType == c_ZU_Corruptor || unitType == c_PU_VoidRay || unitType == c_TU_Raven) {
+        return 13;
+    } else if (unitType == c_ZU_BroodLord || unitType == c_PU_Oracle || unitType == c_TU_Banshee) {
+        return 14;
+    } else if (unitType == c_ZU_Viper || unitType == c_PU_Carrier || unitType == c_TU_Battlecruiser) {
+        return 15;
+    } else if (unitType == c_PU_Tempest) {
+        return 16;
+    } else if (unitType == c_PU_Mothership) {
+        return 17;
+    } else if (unitType == c_PU_MothershipCore) {
+        return 18;
+    }
+    return -1;
+}
+
+// Returns the unitType for a unitIndex
+string NG_getUnitForIndex(int playerid, int index) {
+    return NG_unitString[playerid - 1][index];
+}
+
+// Fill an Array with dependencies for units and buildings
+void NG_initDepArray(int player) {
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        unitDependencies[player - 1][0] = c_ZB_SpawningPool;
+        unitDependencies[player - 1][1] = c_ZB_SpawningPool;
+        unitDependencies[player - 1][2] = c_ZB_BanelingNest;
+        unitDependencies[player - 1][3] = c_ZB_RoachWarren;
+        unitDependencies[player - 1][4] = c_ZB_RoachWarren;
+        unitDependencies[player - 1][5] = c_ZB_HydraliskDen;
+        unitDependencies[player - 1][6] = c_ZB_LurkerDen;
+        unitDependencies[player - 1][7] = c_ZB_InfestationPit;
+        unitDependencies[player - 1][8] = c_ZB_InfestationPit;
+        unitDependencies[player - 1][9] = c_ZB_UltraliskCavern;
+        unitDependencies[player - 1][10] = c_ZB_Hatchery;
+        unitDependencies[player - 1][11] = c_ZB_Lair;
+        unitDependencies[player - 1][12] = c_ZB_Spire;
+        unitDependencies[player - 1][13] = c_ZB_Spire;
+        unitDependencies[player - 1][14] = c_ZB_GreaterSpire;
+        unitDependencies[player - 1][15] = c_ZB_Hive;
+        buildingDependencies[player - 1][0] = "";
+        buildingDependencies[player - 1][1] = c_ZB_Hatchery;
+        buildingDependencies[player - 1][2] = c_ZB_SpawningPool;
+        buildingDependencies[player - 1][3] = c_ZB_SpawningPool;
+        buildingDependencies[player - 1][4] = c_ZB_SpawningPool;
+        buildingDependencies[player - 1][5] = c_ZB_Lair;
+        buildingDependencies[player - 1][6] = c_ZB_Lair;
+        buildingDependencies[player - 1][7] = c_ZB_Lair;
+        buildingDependencies[player - 1][8] = c_ZB_InfestationPit;
+        buildingDependencies[player - 1][9] = c_ZB_HydraliskDen;
+        buildingDependencies[player - 1][10] = c_ZB_Hive;
+        buildingDependencies[player - 1][11] = c_ZB_Hive;
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        unitDependencies[player - 1][0] = c_PB_Gateway;
+        unitDependencies[player - 1][1] = c_PB_CyberneticsCore;
+        unitDependencies[player - 1][2] = c_PB_CyberneticsCore;
+        unitDependencies[player - 1][3] = c_PB_Gateway;
+        unitDependencies[player - 1][4] = c_PB_TemplarArchives;
+        unitDependencies[player - 1][5] = c_PB_DarkShrine;
+        unitDependencies[player - 1][6] = c_PB_RoboticsFacility;
+        unitDependencies[player - 1][7] = c_PB_RoboticsBay;
+        unitDependencies[player - 1][8] = c_PB_RoboticsBay;
+        unitDependencies[player - 1][9] = "";
+        unitDependencies[player - 1][10] = c_PB_RoboticsFacility;
+        unitDependencies[player - 1][11] = c_PB_RoboticsFacility;
+        unitDependencies[player - 1][12] = c_PB_Stargate;
+        unitDependencies[player - 1][13] = c_PB_Stargate;
+        unitDependencies[player - 1][14] = c_PB_Stargate;
+        unitDependencies[player - 1][15] = c_PB_FleetBeacon;
+        unitDependencies[player - 1][16] = c_PB_FleetBeacon;
+        unitDependencies[player - 1][17] = c_PB_FleetBeacon;
+        unitDependencies[player - 1][18] = c_PB_CyberneticsCore;
+        buildingDependencies[player - 1][0] = "";
+        buildingDependencies[player - 1][1] = c_PB_Nexus;
+        buildingDependencies[player - 1][2] = c_PB_Gateway;
+        buildingDependencies[player - 1][3] = c_PB_CyberneticsCore;
+        buildingDependencies[player - 1][4] = c_PB_RoboticsFacility;
+        buildingDependencies[player - 1][5] = c_PB_CyberneticsCore;
+        buildingDependencies[player - 1][6] = c_PB_CyberneticsCore;
+        buildingDependencies[player - 1][7] = c_PB_Stargate;
+        buildingDependencies[player - 1][8] = c_PB_TwilightCouncil;
+        buildingDependencies[player - 1][9] = c_PB_TwilightCouncil;
+    } else {
+        unitDependencies[player - 1][0] = c_TB_Barracks;
+        unitDependencies[player - 1][1] = c_TB_Barracks;
+        unitDependencies[player - 1][2] = c_TB_Barracks;
+        unitDependencies[player - 1][3] = c_TB_GhostAcademy;
+        unitDependencies[player - 1][4] = c_TB_Armory;
+        unitDependencies[player - 1][5] = c_TB_Factory;
+        unitDependencies[player - 1][6] = c_TB_Factory;
+        unitDependencies[player - 1][7] = c_TB_Factory;
+        unitDependencies[player - 1][8] = c_TB_Armory;
+        unitDependencies[player - 1][10] = c_TB_Starport;
+        unitDependencies[player - 1][11] = c_TB_Starport;
+        unitDependencies[player - 1][12] = c_TB_Starport;
+        unitDependencies[player - 1][13] = c_TB_Starport;
+        unitDependencies[player - 1][14] = c_TB_Starport;
+        unitDependencies[player - 1][15] = c_TB_FusionCore;
+        buildingDependencies[player - 1][0] = "";
+        buildingDependencies[player - 1][1] = c_TB_SupplyDepot;
+        buildingDependencies[player - 1][2] = c_TB_Barracks;
+        buildingDependencies[player - 1][3] = c_TB_Barracks;
+        buildingDependencies[player - 1][4] = c_TB_Factory;
+        buildingDependencies[player - 1][5] = c_TB_Factory;
+        buildingDependencies[player - 1][6] = c_TB_Starport;
+        buildingDependencies[player - 1][7] = c_TB_Barracks;
+        buildingDependencies[player - 1][8] = c_TB_Starport;
+        buildingDependencies[player - 1][9] = c_TB_Factory;
+        buildingDependencies[player - 1][10] = "";
+    }
+    NG_debugState("Dependencies initialised!");
+}
+
+// Fill an Array for easier gettin' of the unit-string to a specific index
+void NG_initUnitArray(int player) {
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        NG_unitString[player - 1][0] = c_ZU_Queen;
+        NG_unitString[player - 1][1] = c_ZU_Zergling;
+        NG_unitString[player - 1][2] = c_ZU_Baneling;
+        NG_unitString[player - 1][3] = c_ZU_Roach;
+        NG_unitString[player - 1][4] = c_ZU_Ravager;
+        NG_unitString[player - 1][5] = c_ZU_Hydralisk;
+        NG_unitString[player - 1][6] = c_ZU_Lurker;
+        NG_unitString[player - 1][7] = c_ZU_Infestor;
+        NG_unitString[player - 1][8] = c_ZU_SwarmHost;
+        NG_unitString[player - 1][9] = c_ZU_Ultralisk;
+        NG_unitString[player - 1][10] = c_ZU_Overlord;
+        NG_unitString[player - 1][11] = c_ZU_Overseer;
+        NG_unitString[player - 1][12] = c_ZU_Mutalisk;
+        NG_unitString[player - 1][13] = c_ZU_Corruptor;
+        NG_unitString[player - 1][14] = c_ZU_BroodLord;
+        NG_unitString[player - 1][15] = c_ZU_Viper;
+        NG_currentMaxUnitIndex[player - 1] = 16;
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        NG_unitString[player - 1][0] = c_PU_Zealot;
+        NG_unitString[player - 1][1] = c_PU_Stalker;
+        NG_unitString[player - 1][2] = c_PU_Sentry;
+        NG_unitString[player - 1][3] = c_PU_Adept;
+        NG_unitString[player - 1][4] = c_PU_HighTemplar;
+        NG_unitString[player - 1][5] = c_PU_DarkTemplar;
+        NG_unitString[player - 1][6] = c_PU_Immortal;
+        NG_unitString[player - 1][7] = c_PU_Colossus;
+        NG_unitString[player - 1][8] = c_PU_Disruptor;
+        NG_unitString[player - 1][9] = c_PU_Archon;
+        NG_unitString[player - 1][10] = c_PU_Observer;
+        NG_unitString[player - 1][11] = c_PU_WarpPrism;
+        NG_unitString[player - 1][12] = c_PU_Phoenix;
+        NG_unitString[player - 1][13] = c_PU_VoidRay;
+        NG_unitString[player - 1][14] = c_PU_Oracle;
+        NG_unitString[player - 1][15] = c_PU_Carrier;
+        NG_unitString[player - 1][16] = c_PU_Tempest;
+        NG_unitString[player - 1][17] = c_PU_Mothership;
+        NG_unitString[player - 1][18] = c_PU_MothershipCore;
+        NG_currentMaxUnitIndex[player - 1] = 18;
+    } else {
+        NG_unitString[player - 1][0] = c_TU_Marine;
+        NG_unitString[player - 1][1] = c_TU_Marauder;
+        NG_unitString[player - 1][2] = c_TU_Reaper;
+        NG_unitString[player - 1][3] = c_TU_Ghost;
+        NG_unitString[player - 1][4] = c_TU_Hellion;
+        NG_unitString[player - 1][5] = c_TU_SiegeTank;
+        NG_unitString[player - 1][6] = c_TU_Cyclone;
+        NG_unitString[player - 1][7] = c_TU_WidowMine;
+        NG_unitString[player - 1][8] = c_TU_Thor;
+        NG_unitString[player - 1][10] = c_TU_Viking;
+        NG_unitString[player - 1][11] = c_TU_Medivac;
+        NG_unitString[player - 1][12] = c_TU_Liberator;
+        NG_unitString[player - 1][13] = c_TU_Raven;
+        NG_unitString[player - 1][14] = c_TU_Banshee;
+        NG_unitString[player - 1][15] = c_TU_Battlecruiser;
+        NG_currentMaxUnitIndex[player - 1] = 16;
+    }
+    NG_debugState("Units initialised!");
+}
+
+// Fill the array with the best counters and required number of units
+void NG_initTechCounterTable(int player, int enemy) {
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        if (PlayerRace(enemy) == c_RaceStringZerg) {
+            //List units: Queen, Zergling, Baneling, Roach, ravager, hydra, lurker, infest, swarmhost, ultra, overlord, overseer, muta, corruptor, broodlord, viper
+            //counter for Queen
+            counterTech[player - 1][0].unitName = c_ZU_Zergling;
+            counterTech[player - 1][0].count = 3.00;
+            //counter for Zergling
+            counterTech[player - 1][1].unitName = c_ZU_Baneling;
+            counterTech[player - 1][1].count = 0.25;
+            //counter for Baneling
+            counterTech[player - 1][2].unitName = c_ZU_Roach;
+            counterTech[player - 1][2].count = 0.50;
+            //counter for Roach
+            counterTech[player - 1][3].unitName = c_ZU_Roach;
+            counterTech[player - 1][3].count = 1.00;
+            //counter for Ravager
+            counterTech[player - 1][4].unitName = c_ZU_Roach;
+            counterTech[player - 1][4].count = 1.10;
+            //counter for Hydralisk
+            counterTech[player - 1][5].unitName = c_ZU_Hydralisk;
+            counterTech[player - 1][5].count = 1.00;
+            //counter for Lurker
+            counterTech[player - 1][6].unitName = c_ZU_Ultralisk;
+            counterTech[player - 1][6].count = 0.50;
+            //counter for Infestor
+            counterTech[player - 1][7].unitName = c_ZU_Roach;
+            counterTech[player - 1][7].count = 1.00;
+            //counter for Swarmhost
+            counterTech[player - 1][8].unitName = c_ZU_Roach;
+            counterTech[player - 1][8].count = 3.00;
+            //counter for Ultralisk
+            counterTech[player - 1][9].unitName = c_ZU_Mutalisk;
+            counterTech[player - 1][9].count = 3.00;
+            //counter for Overlord_Alias
+            counterTech[player - 1][10].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][10].count = 0.10;
+            //counter for Overseer
+            counterTech[player - 1][11].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][11].count = 0.10;
+            //counter for Mutalisk
+            counterTech[player - 1][12].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][12].count = 0.80;
+            //counter for Corruptor
+            counterTech[player - 1][13].unitName = c_ZU_Hydralisk;
+            counterTech[player - 1][13].count = 0.80;
+            //counter for BroodLord
+            counterTech[player - 1][14].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][14].count = 1.50;
+            //counter for Viper
+            counterTech[player - 1][15].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][15].count = 1.00;
+        } else if (PlayerRace(enemy) == c_RaceStringTerran) {
+            //List units: Marine, Marauder, Reaper, Ghost, hellion, Siegetank, cyclone, widowmine, thor, <Empty>, Viking, medivac, liberator, raven, banshee, battlecruiser
+            //counter for Marine
+            counterTech[player - 1][0].unitName = c_ZU_Baneling;
+            counterTech[player - 1][0].count = 0.70;
+            //counter for Marauder
+            counterTech[player - 1][1].unitName = c_ZU_Zergling;
+            counterTech[player - 1][1].count = 3.00;
+            //counter for Reaper
+            counterTech[player - 1][2].unitName = c_ZU_Roach;
+            counterTech[player - 1][2].count = 0.50;
+            //counter for Ghost
+            counterTech[player - 1][3].unitName = c_ZU_Roach;
+            counterTech[player - 1][3].count = 1.50;
+            //counter for Hellion_Alias
+            counterTech[player - 1][4].unitName = c_ZU_Roach;
+            counterTech[player - 1][4].count = 0.50;
+            //counter for Siegetank
+            counterTech[player - 1][5].unitName = c_ZU_Ultralisk;
+            counterTech[player - 1][5].count = 0.50;
+            //counter for Cyclone
+            counterTech[player - 1][6].unitName = c_ZU_Zergling;
+            counterTech[player - 1][6].count = 4.00;
+            //counter for WidowMine
+            counterTech[player - 1][7].unitName = c_ZU_Roach;
+            counterTech[player - 1][7].count = 0.50;
+            //counter for Thor
+            counterTech[player - 1][8].unitName = c_ZU_Ultralisk;
+            counterTech[player - 1][8].count = 1.00;
+            //counter for Viking_Alias
+            counterTech[player - 1][10].unitName = c_ZU_Mutalisk;
+            counterTech[player - 1][10].count = 1.10;
+            //counter for Medivac
+            counterTech[player - 1][11].unitName = c_ZU_Mutalisk;
+            counterTech[player - 1][11].count = 0.60;
+            //counter for Liberator
+            counterTech[player - 1][12].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][12].count = 1.00;
+            //counter for Raven
+            counterTech[player - 1][13].unitName = c_ZU_Mutalisk;
+            counterTech[player - 1][13].count = 0.60;
+            //counter for Banshee
+            counterTech[player - 1][14].unitName = c_ZU_Mutalisk;
+            counterTech[player - 1][14].count = 0.60;
+            //counter for Battlecruiser
+            counterTech[player - 1][15].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][15].count = 2.00;
+        } else if (PlayerRace(enemy) == c_RaceStringProtoss) {
+            //List units: Zealot, Stalker, Sentry, Adept, HighTem, darkTem, Immort, coloss, disrupt, archon, observ, warpprism, Phoenix, voidray, oracle, carrier
+            //counters for Zealot
+            counterTech[player - 1][0].unitName = c_ZU_Roach;
+            counterTech[player - 1][0].count = 1.10;
+            //counter for Stalker
+            counterTech[player - 1][1].unitName = c_ZU_Ultralisk;
+            counterTech[player - 1][1].count = 0.25;
+            //counter for Sentry
+            counterTech[player - 1][2].unitName = c_ZU_Hydralisk;
+            counterTech[player - 1][2].count = 1.00;
+            //counter for Adept
+            counterTech[player - 1][3].unitName = c_ZU_Roach;
+            counterTech[player - 1][3].count = 1.00;
+            //counter for HighTemplar
+            counterTech[player - 1][4].unitName = c_ZU_Roach;
+            counterTech[player - 1][4].count = 1.00;
+            //counter for DarkTemplar
+            counterTech[player - 1][5].unitName = c_ZU_Roach;
+            counterTech[player - 1][5].count = 1.30;
+            //counter for Immortal
+            counterTech[player - 1][6].unitName = c_ZU_Hydralisk;
+            counterTech[player - 1][6].count = 2.20;
+            //counter for Colossus
+            counterTech[player - 1][7].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][7].count = 3.00;
+            //counter for Disruptor
+            counterTech[player - 1][8].unitName = c_ZU_Ultralisk;
+            counterTech[player - 1][8].count = 0.80;
+            //counter for Archon
+            counterTech[player - 1][9].unitName = c_ZU_Ultralisk;
+            counterTech[player - 1][9].count = 0.90;
+            //counter for Observer
+            counterTech[player - 1][10].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][10].count = 0.10;
+            //counter for WarpPrism
+            counterTech[player - 1][11].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][11].count = 0.10;
+            //counter for Phoenix
+            counterTech[player - 1][12].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][12].count = 0.80;
+            //counter for VoidRay
+            counterTech[player - 1][13].unitName = c_ZU_Mutalisk;
+            counterTech[player - 1][13].count = 2.00;
+            //counter for Oracle
+            counterTech[player - 1][14].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][14].count = 1.00;
+            //counter for Carrier
+            counterTech[player - 1][15].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][15].count = 2.00;
+            //counter for Tempest
+            counterTech[player - 1][16].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][16].count = 3.00;
+            //counter for Mothership
+            counterTech[player - 1][17].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][17].count = 5.00;
+            //counter for MothershipCore
+            counterTech[player - 1][18].unitName = c_ZU_Corruptor;
+            counterTech[player - 1][18].count = 1.00;
+        }
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        if (PlayerRace(enemy) == c_RaceStringZerg) {
+            //List units: Queen, Zergling, Baneling, Roach, ravager, hydra, lurker, infest, swarmhost, ultra, overlord, overseer, muta, corruptor, broodlord, viper
+            //counter for Queen
+            counterTech[player - 1][0].unitName = c_PU_Zealot;
+            counterTech[player - 1][0].count = 0.70;
+            //counter for Zergling
+            counterTech[player - 1][1].unitName = c_PU_Zealot;
+            counterTech[player - 1][1].count = 0.30;
+            //counter for Baneling
+            counterTech[player - 1][2].unitName = c_PU_Immortal;
+            counterTech[player - 1][2].count = 0.20;
+            //counter for Roach
+            counterTech[player - 1][3].unitName = c_PU_Immortal;
+            counterTech[player - 1][3].count = 0.25;
+            //counter for Ravager
+            counterTech[player - 1][4].unitName = c_PU_Immortal;
+            counterTech[player - 1][4].count = 0.30;
+            //counter for Hydralisk
+            counterTech[player - 1][5].unitName = c_PU_Colossus;
+            counterTech[player - 1][5].count = 0.25;
+            //counter for Lurker
+            counterTech[player - 1][6].unitName = c_PU_Disruptor;
+            counterTech[player - 1][6].count = 0.50;
+            //counter for Infestor
+            counterTech[player - 1][7].unitName = c_PU_Stalker;
+            counterTech[player - 1][7].count = 1.50;
+            //counter for Swarmhost
+            counterTech[player - 1][8].unitName = c_PU_VoidRay;
+            counterTech[player - 1][8].count = 1.00;
+            //counter for Ultralisk
+            counterTech[player - 1][9].unitName = c_PU_Immortal;
+            counterTech[player - 1][9].count = 1.25;
+            //counter for Overlord_Alias
+            counterTech[player - 1][10].unitName = c_PU_Phoenix;
+            counterTech[player - 1][10].count = 0.10;
+            //counter for Overseer
+            counterTech[player - 1][11].unitName = c_PU_Phoenix;
+            counterTech[player - 1][11].count = 0.10;
+            //counter for Mutalisk
+            counterTech[player - 1][12].unitName = c_PU_Stalker;
+            counterTech[player - 1][12].count = 1.0;
+            //counter for Corruptor
+            counterTech[player - 1][13].unitName = c_PU_Stalker;
+            counterTech[player - 1][13].count = 0.80;
+            //counter for BroodLord
+            counterTech[player - 1][14].unitName = c_PU_VoidRay;
+            counterTech[player - 1][14].count = 1.00;
+            //counter for Viper
+            counterTech[player - 1][15].unitName = c_PU_VoidRay;
+            counterTech[player - 1][15].count = 1.00;
+        } else if (PlayerRace(enemy) == c_RaceStringTerran) {
+            //List units: Marine, Marauder, Reaper, Ghost, hellion, Siegetank, cyclone, widowmine, thor, <Empty>, Viking, medivac, liberator, raven, banshee, battlecruiser
+            //counter for Marine
+            counterTech[player - 1][0].unitName = c_PU_Colossus;
+            counterTech[player - 1][0].count = 0.10;
+            //counter for Marauder
+            counterTech[player - 1][1].unitName = c_PU_Immortal;
+            counterTech[player - 1][1].count = 0.40;
+            //counter for Reaper
+            counterTech[player - 1][2].unitName = c_PU_Stalker;
+            counterTech[player - 1][2].count = 0.50;
+            //counter for Ghost
+            counterTech[player - 1][3].unitName = c_PU_Stalker;
+            counterTech[player - 1][3].count = 1.00;
+            //counter for Hellion_Alias
+            counterTech[player - 1][4].unitName = c_PU_Stalker;
+            counterTech[player - 1][4].count = 0.50;
+            //counter for Siegetank
+            counterTech[player - 1][5].unitName = c_PU_Immortal;
+            counterTech[player - 1][5].count = 0.60;
+            //counter for Cyclone
+            counterTech[player - 1][6].unitName = c_PU_Zealot;
+            counterTech[player - 1][6].count = 2.00;
+            //counter for WidowMine
+            counterTech[player - 1][7].unitName = c_PU_Stalker;
+            counterTech[player - 1][7].count = 0.50;
+            //counter for Thor
+            counterTech[player - 1][8].unitName = c_PU_Immortal;
+            counterTech[player - 1][8].count = 1.20;
+            //counter for Viking_Alias
+            counterTech[player - 1][10].unitName = c_PU_Stalker;
+            counterTech[player - 1][10].count = 1.00;
+            //counter for Medivac
+            counterTech[player - 1][11].unitName = c_PU_Stalker;
+            counterTech[player - 1][11].count = 1.00;
+            //counter for Liberator
+            counterTech[player - 1][12].unitName = c_PU_Carrier;
+            counterTech[player - 1][12].count = 0.50;
+            //counter for Raven
+            counterTech[player - 1][13].unitName = c_PU_Stalker;
+            counterTech[player - 1][13].count = 1.00;
+            //counter for Banshee
+            counterTech[player - 1][14].unitName = c_PU_Phoenix;
+            counterTech[player - 1][14].count = 0.50;
+            //counter for Battlecruiser
+            counterTech[player - 1][15].unitName = c_PU_VoidRay;
+            counterTech[player - 1][15].count = 1.75;
+        } else if (PlayerRace(enemy) == c_RaceStringProtoss) {
+            //List units: Zealot, Stalker, Sentry, Adept, HighTem, darkTem, Immort, coloss, disrupt, archon, observ, warpprism, Phoenix, voidray, oracle, carrier
+            //counters for Zealot
+            counterTech[player - 1][0].unitName = c_PU_Zealot;
+            counterTech[player - 1][0].count = 1.00;
+            //counter for Stalker
+            counterTech[player - 1][1].unitName = c_PU_Immortal;
+            counterTech[player - 1][1].count = 0.33;
+            //counter for Sentry
+            counterTech[player - 1][2].unitName = c_PU_Stalker;
+            counterTech[player - 1][2].count = 0.70;
+            //counter for Adept
+            counterTech[player - 1][3].unitName = c_PU_Stalker;
+            counterTech[player - 1][3].count = 1.00;
+            //counter for HighTemplar
+            counterTech[player - 1][4].unitName = c_PU_Stalker;
+            counterTech[player - 1][4].count = 0.60;
+            //counter for DarkTemplar
+            counterTech[player - 1][5].unitName = c_PU_Zealot;
+            counterTech[player - 1][5].count = 1.00;
+            //counter for Immortal
+            counterTech[player - 1][6].unitName = c_PU_Zealot;
+            counterTech[player - 1][6].count = 2.00;
+            //counter for Colossus
+            counterTech[player - 1][7].unitName = c_PU_Colossus;
+            counterTech[player - 1][7].count = 1.00;
+            //counter for Disruptor
+            counterTech[player - 1][8].unitName = c_PU_Immortal;
+            counterTech[player - 1][8].count = 1.00;
+            //counter for Archon
+            counterTech[player - 1][9].unitName = c_PU_Immortal;
+            counterTech[player - 1][9].count = 1.00;
+            //counter for Observer
+            counterTech[player - 1][10].unitName = c_PU_Phoenix;
+            counterTech[player - 1][10].count = 0.10;
+            //counter for WarpPrism
+            counterTech[player - 1][11].unitName = c_PU_Phoenix;
+            counterTech[player - 1][11].count = 0.10;
+            //counter for Phoenix
+            counterTech[player - 1][12].unitName = c_PU_Stalker;
+            counterTech[player - 1][12].count = 1.00;
+            //counter for VoidRay
+            counterTech[player - 1][13].unitName = c_PU_Phoenix;
+            counterTech[player - 1][13].count = 1.10;
+            //counter for Oracle
+            counterTech[player - 1][14].unitName = c_PU_Phoenix;
+            counterTech[player - 1][14].count = 1.00;
+            //counter for Carrier
+            counterTech[player - 1][15].unitName = c_PU_VoidRay;
+            counterTech[player - 1][15].count = 2.00;
+            //counter for Tempest
+            counterTech[player - 1][16].unitName = c_PU_VoidRay;
+            counterTech[player - 1][16].count = 2.00;
+            //counter for Mothership
+            counterTech[player - 1][17].unitName = c_PU_VoidRay;
+            counterTech[player - 1][17].count = 4.00;
+            //counter for MothershipCore
+            counterTech[player - 1][18].unitName = c_PU_Phoenix;
+            counterTech[player - 1][18].count = 1.00;
+        }
+    } else if (PlayerRace(player) == c_RaceStringTerran) {
+        if (PlayerRace(enemy) == c_RaceStringZerg) {
+            //List units: Queen, Zergling, Baneling, Roach, ravager, hydra, lurker, infest, swarmhost, ultra, overlord, overseer, muta, corruptor, broodlord, viper
+//            //counter for Queen
+//            counterTech[player - 1][0].unitName = c_PU_Zealot;
+//            counterTech[player - 1][0].count = 0.70;
+            //counter for Zergling
+            counterTech[player - 1][1].unitName = c_TU_Hellion;
+            counterTech[player - 1][1].count = 0.30;
+            //counter for Baneling
+            counterTech[player - 1][2].unitName = c_TU_Marauder;
+            counterTech[player - 1][2].count = 0.50;
+            //counter for Roach
+            counterTech[player - 1][3].unitName = c_TU_Marauder;
+            counterTech[player - 1][3].count = 0.80;
+            //counter for Ravager
+            counterTech[player - 1][4].unitName = c_TU_Marauder;
+            counterTech[player - 1][4].count = 1.00;
+            //counter for Hydralisk
+            counterTech[player - 1][5].unitName = c_TU_SiegeTank;
+            counterTech[player - 1][5].count = 0.40;
+            //counter for Lurker
+            counterTech[player - 1][6].unitName = c_TU_SiegeTank;
+            counterTech[player - 1][6].count = 0.75;
+            //counter for Infestor
+            counterTech[player - 1][7].unitName = c_TU_Marauder;
+            counterTech[player - 1][7].count = 1.50;
+            //counter for Swarmhost
+            counterTech[player - 1][8].unitName = c_TU_Marine;
+            counterTech[player - 1][8].count = 3.00;
+            //counter for Ultralisk
+            counterTech[player - 1][9].unitName = c_TU_Battlecruiser;
+            counterTech[player - 1][9].count = 1.00;
+            //counter for Overlord_Alias
+            counterTech[player - 1][10].unitName = c_TU_Viking;
+            counterTech[player - 1][10].count = 0.10;
+            //counter for Overseer
+            counterTech[player - 1][11].unitName = c_TU_Viking;
+            counterTech[player - 1][11].count = 0.10;
+            //counter for Mutalisk
+            counterTech[player - 1][12].unitName = c_TU_Liberator;
+            counterTech[player - 1][12].count = 0.60;
+            //counter for Corruptor
+            counterTech[player - 1][13].unitName = c_TU_Marine;
+            counterTech[player - 1][13].count = 1.00;
+            //counter for BroodLord
+            counterTech[player - 1][14].unitName = c_TU_Viking;
+            counterTech[player - 1][14].count = 2.00;
+            //counter for Viper
+            counterTech[player - 1][15].unitName = c_TU_Viking;
+            counterTech[player - 1][15].count = 1.00;
+        } else if (PlayerRace(enemy) == c_RaceStringTerran) {
+            //List units: Marine, Marauder, Reaper, Ghost, hellion, Siegetank, cyclone, widowmine, thor, <Empty>, Viking, medivac, liberator, raven, banshee, battlecruiser
+            //counter for Marine
+            counterTech[player - 1][0].unitName = c_TU_SiegeTank;
+            counterTech[player - 1][0].count = 0.20;
+            //counter for Marauder
+            counterTech[player - 1][1].unitName = c_TU_Marauder;
+            counterTech[player - 1][1].count = 1.00;
+            //counter for Reaper
+            counterTech[player - 1][2].unitName = c_TU_Marauder;
+            counterTech[player - 1][2].count = 0.60;
+            //counter for Ghost
+            counterTech[player - 1][3].unitName = c_TU_Marauder;
+            counterTech[player - 1][3].count = 0.60;
+            //counter for Hellion_Alias
+            counterTech[player - 1][4].unitName = c_TU_Marauder;
+            counterTech[player - 1][4].count = 0.60;
+            //counter for Siegetank
+            counterTech[player - 1][5].unitName = c_TU_Liberator;
+            counterTech[player - 1][5].count = 1.00;
+            //counter for Cyclone
+            counterTech[player - 1][6].unitName = c_TU_Marine;
+            counterTech[player - 1][6].count = 2.00;
+            //counter for WidowMine
+            counterTech[player - 1][7].unitName = c_TU_Raven;
+            counterTech[player - 1][7].count = 0.30;
+            //counter for Thor
+            counterTech[player - 1][8].unitName = c_TU_Battlecruiser;
+            counterTech[player - 1][8].count = 0.40;
+            //counter for Viking_Alias
+            counterTech[player - 1][10].unitName = c_TU_Viking;
+            counterTech[player - 1][10].count = 1.00;
+            //counter for Medivac
+            counterTech[player - 1][11].unitName = c_TU_Viking;
+            counterTech[player - 1][11].count = 0.60;
+            //counter for Liberator
+            counterTech[player - 1][12].unitName = c_TU_Battlecruiser;
+            counterTech[player - 1][12].count = 0.50;
+            //counter for Raven
+            counterTech[player - 1][13].unitName = c_TU_Viking;
+            counterTech[player - 1][13].count = 0.60;
+            //counter for Banshee
+            counterTech[player - 1][14].unitName = c_TU_Viking;
+            counterTech[player - 1][14].count = 0.60;
+            //counter for Battlecruiser
+            counterTech[player - 1][15].unitName = c_TU_Viking;
+            counterTech[player - 1][15].count = 2.50;
+        } else if (PlayerRace(enemy) == c_RaceStringProtoss) {
+            //List units: Zealot, Stalker, Sentry, Adept, HighTem, darkTem, Immort, coloss, disrupt, archon, observ, warpprism, Phoenix, voidray, oracle, carrier
+            //counters for Zealot
+            counterTech[player - 1][0].unitName = c_TU_Marauder;
+            counterTech[player - 1][0].count = 1.00;
+            //counter for Stalker
+            counterTech[player - 1][1].unitName = c_TU_Marauder;
+            counterTech[player - 1][1].count = 1.00;
+            //counter for Sentry
+            counterTech[player - 1][2].unitName = c_TU_Marauder;
+            counterTech[player - 1][2].count = 1.00;
+            //counter for Adept
+            counterTech[player - 1][3].unitName = c_TU_Marauder;
+            counterTech[player - 1][3].count = 1.00;
+            //counter for HighTemplar
+            counterTech[player - 1][4].unitName = c_TU_Ghost;
+            counterTech[player - 1][4].count = 1.00;
+            //counter for DarkTemplar
+            counterTech[player - 1][5].unitName = c_TU_Marauder;
+            counterTech[player - 1][5].count = 1.50;
+            //counter for Immortal
+            counterTech[player - 1][6].unitName = c_TU_Ghost;
+            counterTech[player - 1][6].count = 1.00;
+            //counter for Colossus
+            counterTech[player - 1][7].unitName = c_TU_Viking;
+            counterTech[player - 1][7].count = 4.00;
+            //counter for Disruptor
+            counterTech[player - 1][8].unitName = c_TU_Thor;
+            counterTech[player - 1][8].count = 0.75;
+            //counter for Archon
+            counterTech[player - 1][9].unitName = c_TU_Ghost;
+            counterTech[player - 1][9].count = 1.00;
+            //counter for Observer
+            counterTech[player - 1][10].unitName = c_TU_Viking;
+            counterTech[player - 1][10].count = 0.10;
+            //counter for WarpPrism
+            counterTech[player - 1][11].unitName = c_TU_Viking;
+            counterTech[player - 1][11].count = 0.10;
+            //counter for Phoenix
+            counterTech[player - 1][12].unitName = c_TU_Marine;
+            counterTech[player - 1][12].count = 2.00;
+            //counter for VoidRay
+            counterTech[player - 1][13].unitName = c_TU_Viking;
+            counterTech[player - 1][13].count = 1.50;
+            //counter for Oracle
+            counterTech[player - 1][14].unitName = c_TU_Viking;
+            counterTech[player - 1][14].count = 1.00;
+            //counter for Carrier
+            counterTech[player - 1][15].unitName = c_TU_Viking;
+            counterTech[player - 1][15].count = 3.00;
+            //counter for Tempest
+            counterTech[player - 1][16].unitName = c_TU_Viking;
+            counterTech[player - 1][16].count = 3.00;
+            //counter for Mothership
+            counterTech[player - 1][17].unitName = c_TU_Viking;
+            counterTech[player - 1][17].count = 5.00;
+            //counter for MothershipCore
+            counterTech[player - 1][18].unitName = c_TU_Viking;
+            counterTech[player - 1][18].count = 1.00;
+        }
+    }
+    NG_debugState("TechCounter initialised!");
+}
+
+// Fill the array with basic counters and required number of units
+void NG_initBasicCounterTable(int player, int enemy) {
+    if (PlayerRace(player) == c_RaceStringZerg) {
+        if (PlayerRace(enemy) == c_RaceStringZerg) {
+            //List units: Queen, Zergling, Baneling, Roach, ravager, hydra, lurker, infest, swarmhost, ultra, overlord, overseer, muta, corruptor, broodlord, viper
+            //counter for Queen
+            counterBasic[player - 1][0].unitName = c_ZU_Zergling;
+            counterBasic[player - 1][0].count = 3.00;
+            //counter for Zergling
+            counterBasic[player - 1][1].unitName = c_ZU_Baneling;
+            counterBasic[player - 1][1].count = 0.25;
+            //counter for Baneling
+            counterBasic[player - 1][2].unitName = c_ZU_Roach;
+            counterBasic[player - 1][2].count = 0.50;
+            //counter for Roach
+            counterBasic[player - 1][3].unitName = c_ZU_Roach;
+            counterBasic[player - 1][3].count = 1.00;
+            //counter for Ravager
+            counterBasic[player - 1][4].unitName = c_ZU_Roach;
+            counterBasic[player - 1][4].count = 1.10;
+            //counter for Hydralisk
+            counterBasic[player - 1][5].unitName = c_ZU_Hydralisk;
+            counterBasic[player - 1][5].count = 1.00;
+            //counter for Lurker
+            counterBasic[player - 1][6].unitName = c_ZU_Roach;
+            counterBasic[player - 1][6].count = 2.50;
+            //counter for Infestor
+            counterBasic[player - 1][7].unitName = c_ZU_Roach;
+            counterBasic[player - 1][7].count = 1.00;
+            //counter for Swarmhost
+            counterBasic[player - 1][8].unitName = c_ZU_Roach;
+            counterBasic[player - 1][8].count = 3.00;
+            //counter for Ultralisk
+            counterBasic[player - 1][9].unitName = c_ZU_Mutalisk;
+            counterBasic[player - 1][9].count = 3.00;
+            //counter for Overlord_Alias
+            counterBasic[player - 1][10].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][10].count = 0.10;
+            //counter for Overseer
+            counterBasic[player - 1][11].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][11].count = 0.10;
+            //counter for Mutalisk
+            counterBasic[player - 1][12].unitName = c_ZU_Mutalisk;
+            counterBasic[player - 1][12].count = 1.00;
+            //counter for Corruptor
+            counterBasic[player - 1][13].unitName = c_ZU_Hydralisk;
+            counterBasic[player - 1][13].count = 0.80;
+            //counter for BroodLord
+            counterBasic[player - 1][14].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][14].count = 1.50;
+            //counter for Viper
+            counterBasic[player - 1][15].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][15].count = 1.00;
+        } else if (PlayerRace(enemy) == c_RaceStringTerran) {
+            //List units: Marine, Marauder, Reaper, Ghost, hellion, Siegetank, cyclone, widowmine, thor, <Empty>, Viking, medivac, liberator, raven, banshee, battlecruiser
+            //counter for Marine
+            counterBasic[player - 1][0].unitName = c_ZU_Baneling;
+            counterBasic[player - 1][0].count = 0.70;
+            //counter for Marauder
+            counterBasic[player - 1][1].unitName = c_ZU_Zergling;
+            counterBasic[player - 1][1].count = 3.00;
+            //counter for Reaper
+            counterBasic[player - 1][2].unitName = c_ZU_Roach;
+            counterBasic[player - 1][2].count = 0.50;
+            //counter for Ghost
+            counterBasic[player - 1][3].unitName = c_ZU_Roach;
+            counterBasic[player - 1][3].count = 1.50;
+            //counter for Hellion_Alias
+            counterBasic[player - 1][4].unitName = c_ZU_Roach;
+            counterBasic[player - 1][4].count = 0.50;
+            //counter for Siegetank
+            counterBasic[player - 1][5].unitName = c_ZU_Zergling;
+            counterBasic[player - 1][5].count = 6.00;
+            //counter for Cyclone
+            counterBasic[player - 1][6].unitName = c_ZU_Zergling;
+            counterBasic[player - 1][6].count = 4.00;
+            //counter for WidowMine
+            counterBasic[player - 1][7].unitName = c_ZU_Roach;
+            counterBasic[player - 1][7].count = 0.50;
+            //counter for Thor
+            counterBasic[player - 1][8].unitName = c_ZU_Zergling;
+            counterBasic[player - 1][8].count = 6.00;
+            //counter for Viking_Alias
+            counterBasic[player - 1][10].unitName = c_ZU_Mutalisk;
+            counterBasic[player - 1][10].count = 1.10;
+            //counter for Medivac
+            counterBasic[player - 1][11].unitName = c_ZU_Mutalisk;
+            counterBasic[player - 1][11].count = 0.60;
+            //counter for Liberator
+            counterBasic[player - 1][12].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][12].count = 1.00;
+            //counter for Raven
+            counterBasic[player - 1][13].unitName = c_ZU_Mutalisk;
+            counterBasic[player - 1][13].count = 0.60;
+            //counter for Banshee
+            counterBasic[player - 1][14].unitName = c_ZU_Mutalisk;
+            counterBasic[player - 1][14].count = 0.60;
+            //counter for Battlecruiser
+            counterBasic[player - 1][15].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][15].count = 2.00;
+        } else if (PlayerRace(enemy) == c_RaceStringProtoss) {
+            //List units: Zealot, Stalker, Sentry, Adept, HighTem, darkTem, Immort, coloss, disrupt, archon, observ, warpprism, Phoenix, voidray, oracle, carrier
+            //counters for Zealot
+            counterBasic[player - 1][0].unitName = c_ZU_Roach;
+            counterBasic[player - 1][0].count = 1.10;
+            //counter for Stalker
+            counterBasic[player - 1][1].unitName = c_ZU_Zergling;
+            counterBasic[player - 1][1].count = 3.00;
+            //counter for Sentry
+            counterBasic[player - 1][2].unitName = c_ZU_Roach;
+            counterBasic[player - 1][2].count = 1.00;
+            //counter for Adept
+            counterBasic[player - 1][3].unitName = c_ZU_Roach;
+            counterBasic[player - 1][3].count = 1.00;
+            //counter for HighTemplar
+            counterBasic[player - 1][4].unitName = c_ZU_Roach;
+            counterBasic[player - 1][4].count = 1.00;
+            //counter for DarkTemplar
+            counterBasic[player - 1][5].unitName = c_ZU_Roach;
+            counterBasic[player - 1][5].count = 1.30;
+            //counter for Immortal
+            counterBasic[player - 1][6].unitName = c_ZU_Zergling;
+            counterBasic[player - 1][6].count = 6.00;
+            //counter for Colossus
+            counterBasic[player - 1][7].unitName = c_ZU_Roach;
+            counterBasic[player - 1][7].count = 4.00;
+            //counter for Disruptor
+            counterBasic[player - 1][8].unitName = c_ZU_Roach;
+            counterBasic[player - 1][8].count = 4.00;
+            //counter for Archon
+            counterBasic[player - 1][9].unitName = c_ZU_Hydralisk;
+            counterBasic[player - 1][9].count = 2.00;
+            //counter for Observer
+            counterBasic[player - 1][10].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][10].count = 0.10;
+            //counter for WarpPrism
+            counterBasic[player - 1][11].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][11].count = 0.10;
+            //counter for Phoenix
+            counterBasic[player - 1][12].unitName = c_ZU_Hydralisk;
+            counterBasic[player - 1][12].count = 1.00;
+            //counter for VoidRay
+            counterBasic[player - 1][13].unitName = c_ZU_Mutalisk;
+            counterBasic[player - 1][13].count = 2.00;
+            //counter for Oracle
+            counterBasic[player - 1][14].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][14].count = 1.00;
+            //counter for Carrier
+            counterBasic[player - 1][15].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][15].count = 2.00;
+            //counter for Tempest
+            counterBasic[player - 1][16].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][16].count = 3.00;
+            //counter for Mothership
+            counterBasic[player - 1][17].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][17].count = 5.00;
+            //counter for MothershipCore
+            counterBasic[player - 1][18].unitName = c_ZU_Corruptor;
+            counterBasic[player - 1][18].count = 1.00;
+        }
+    } else if (PlayerRace(player) == c_RaceStringProtoss) {
+        if (PlayerRace(enemy) == c_RaceStringZerg) {
+            //List units: Queen, Zergling, Baneling, Roach, ravager, hydra, lurker, infest, swarmhost, ultra, overlord, overseer, muta, corruptor, broodlord, viper
+            //counter for Queen
+            counterBasic[player - 1][0].unitName = c_PU_Zealot;
+            counterBasic[player - 1][0].count = 0.70;
+            //counter for Zergling
+            counterBasic[player - 1][1].unitName = c_PU_Zealot;
+            counterBasic[player - 1][1].count = 0.30;
+            //counter for Baneling
+            counterBasic[player - 1][2].unitName = c_PU_Stalker;
+            counterBasic[player - 1][2].count = 0.40;
+            //counter for Roach
+            counterBasic[player - 1][3].unitName = c_PU_Zealot;
+            counterBasic[player - 1][3].count = 1.00;
+            //counter for Ravager
+            counterBasic[player - 1][4].unitName = c_PU_Zealot;
+            counterBasic[player - 1][4].count = 1.25;
+            //counter for Hydralisk
+            counterBasic[player - 1][5].unitName = c_PU_Zealot;
+            counterBasic[player - 1][5].count = 1.00;
+            //counter for Lurker
+            counterBasic[player - 1][6].unitName = c_PU_Stalker;
+            counterBasic[player - 1][6].count = 2.00;
+            //counter for Infestor
+            counterBasic[player - 1][7].unitName = c_PU_Stalker;
+            counterBasic[player - 1][7].count = 1.50;
+            //counter for Swarmhost
+            counterBasic[player - 1][8].unitName = c_PU_Zealot;
+            counterBasic[player - 1][8].count = 3.00;
+            //counter for Ultralisk
+            counterBasic[player - 1][9].unitName = c_PU_Immortal;
+            counterBasic[player - 1][9].count = 1.25;
+            //counter for Overlord_Alias
+            counterBasic[player - 1][10].unitName = c_PU_Phoenix;
+            counterBasic[player - 1][10].count = 0.10;
+            //counter for Overseer
+            counterBasic[player - 1][11].unitName = c_PU_Phoenix;
+            counterBasic[player - 1][11].count = 0.10;
+            //counter for Mutalisk
+            counterBasic[player - 1][12].unitName = c_PU_Stalker;
+            counterBasic[player - 1][12].count = 1.0;
+            //counter for Corruptor
+            counterBasic[player - 1][13].unitName = c_PU_Stalker;
+            counterBasic[player - 1][13].count = 0.80;
+            //counter for BroodLord
+            counterBasic[player - 1][14].unitName = c_PU_VoidRay;
+            counterBasic[player - 1][14].count = 1.00;
+            //counter for Viper
+            counterBasic[player - 1][15].unitName = c_PU_Stalker;
+            counterBasic[player - 1][15].count = 2.00;
+        } else if (PlayerRace(enemy) == c_RaceStringTerran) {
+            //List units: Marine, Marauder, Reaper, Ghost, hellion, Siegetank, cyclone, widowmine, thor, <Empty>, Viking, medivac, liberator, raven, banshee, battlecruiser
+            //counter for Marine
+            counterBasic[player - 1][0].unitName = c_PU_Zealot;
+            counterBasic[player - 1][0].count = 0.50;
+            //counter for Marauder
+            counterBasic[player - 1][1].unitName = c_PU_Zealot;
+            counterBasic[player - 1][1].count = 1.00;
+            //counter for Reaper
+            counterBasic[player - 1][2].unitName = c_PU_Stalker;
+            counterBasic[player - 1][2].count = 0.50;
+            //counter for Ghost
+            counterBasic[player - 1][3].unitName = c_PU_Stalker;
+            counterBasic[player - 1][3].count = 1.00;
+            //counter for Hellion_Alias
+            counterBasic[player - 1][4].unitName = c_PU_Stalker;
+            counterBasic[player - 1][4].count = 0.50;
+            //counter for Siegetank
+            counterBasic[player - 1][5].unitName = c_PU_Immortal;
+            counterBasic[player - 1][5].count = 0.60;
+            //counter for Cyclone
+            counterBasic[player - 1][6].unitName = c_PU_Zealot;
+            counterBasic[player - 1][6].count = 2.00;
+            //counter for WidowMine
+            counterBasic[player - 1][7].unitName = c_PU_Stalker;
+            counterBasic[player - 1][7].count = 0.50;
+            //counter for Thor
+            counterBasic[player - 1][8].unitName = c_PU_Zealot;
+            counterBasic[player - 1][8].count = 5.00;
+            //counter for Viking_Alias
+            counterBasic[player - 1][10].unitName = c_PU_Stalker;
+            counterBasic[player - 1][10].count = 1.00;
+            //counter for Medivac
+            counterBasic[player - 1][11].unitName = c_PU_Stalker;
+            counterBasic[player - 1][11].count = 1.00;
+            //counter for Liberator
+            counterBasic[player - 1][12].unitName = c_PU_Phoenix;
+            counterBasic[player - 1][12].count = 1.50;
+            //counter for Raven
+            counterBasic[player - 1][13].unitName = c_PU_Stalker;
+            counterBasic[player - 1][13].count = 1.00;
+            //counter for Banshee
+            counterBasic[player - 1][14].unitName = c_PU_Stalker;
+            counterBasic[player - 1][14].count = 1.50;
+            //counter for Battlecruiser
+            counterBasic[player - 1][15].unitName = c_PU_VoidRay;
+            counterBasic[player - 1][15].count = 1.75;
+        } else if (PlayerRace(enemy) == c_RaceStringProtoss) {
+            //List units: Zealot, Stalker, Sentry, Adept, HighTem, darkTem, Immort, coloss, disrupt, archon, observ, warpprism, Phoenix, voidray, oracle, carrier
+            //counters for Zealot
+            counterBasic[player - 1][0].unitName = c_PU_Zealot;
+            counterBasic[player - 1][0].count = 1.00;
+            //counter for Stalker
+            counterBasic[player - 1][1].unitName = c_PU_Stalker;
+            counterBasic[player - 1][1].count = 1.00;
+            //counter for Sentry
+            counterBasic[player - 1][2].unitName = c_PU_Stalker;
+            counterBasic[player - 1][2].count = 0.70;
+            //counter for Adept
+            counterBasic[player - 1][3].unitName = c_PU_Stalker;
+            counterBasic[player - 1][3].count = 1.00;
+            //counter for HighTemplar
+            counterBasic[player - 1][4].unitName = c_PU_Stalker;
+            counterBasic[player - 1][4].count = 0.60;
+            //counter for DarkTemplar
+            counterBasic[player - 1][5].unitName = c_PU_Zealot;
+            counterBasic[player - 1][5].count = 1.00;
+            //counter for Immortal
+            counterBasic[player - 1][6].unitName = c_PU_Zealot;
+            counterBasic[player - 1][6].count = 2.00;
+            //counter for Colossus
+            counterBasic[player - 1][7].unitName = c_PU_Immortal;
+            counterBasic[player - 1][7].count = 1.20;
+            //counter for Disruptor
+            counterBasic[player - 1][8].unitName = c_PU_Immortal;
+            counterBasic[player - 1][8].count = 1.00;
+            //counter for Archon
+            counterBasic[player - 1][9].unitName = c_PU_Immortal;
+            counterBasic[player - 1][9].count = 1.00;
+            //counter for Observer
+            counterBasic[player - 1][10].unitName = c_PU_Phoenix;
+            counterBasic[player - 1][10].count = 0.10;
+            //counter for WarpPrism
+            counterBasic[player - 1][11].unitName = c_PU_Phoenix;
+            counterBasic[player - 1][11].count = 0.10;
+            //counter for Phoenix
+            counterBasic[player - 1][12].unitName = c_PU_Stalker;
+            counterBasic[player - 1][12].count = 1.00;
+            //counter for VoidRay
+            counterBasic[player - 1][13].unitName = c_PU_Phoenix;
+            counterBasic[player - 1][13].count = 1.10;
+            //counter for Oracle
+            counterBasic[player - 1][14].unitName = c_PU_Stalker;
+            counterBasic[player - 1][14].count = 1.00;
+            //counter for Carrier
+            counterBasic[player - 1][15].unitName = c_PU_VoidRay;
+            counterBasic[player - 1][15].count = 2.00;
+            //counter for Tempest
+            counterBasic[player - 1][16].unitName = c_PU_VoidRay;
+            counterBasic[player - 1][16].count = 2.00;
+            //counter for Mothership
+            counterBasic[player - 1][17].unitName = c_PU_VoidRay;
+            counterBasic[player - 1][17].count = 4.00;
+            //counter for MothershipCore
+            counterBasic[player - 1][18].unitName = c_PU_Stalker;
+            counterBasic[player - 1][18].count = 1.00;
+        } else if (PlayerRace(player) == c_RaceStringTerran) {
+            if (PlayerRace(enemy) == c_RaceStringZerg) {
+                //List units: Queen, Zergling, Baneling, Roach, ravager, hydra, lurker, infest, swarmhost, ultra, overlord, overseer, muta, corruptor, broodlord, viper
+//            //counter for Queen
+//            counterTech[player - 1][0].unitName = c_PU_Zealot;
+//            counterTech[player - 1][0].count = 0.70;
+                //counter for Zergling
+                counterTech[player - 1][1].unitName = c_TU_Marine;
+                counterTech[player - 1][1].count = 0.60;
+                //counter for Baneling
+                counterTech[player - 1][2].unitName = c_TU_Marauder;
+                counterTech[player - 1][2].count = 0.50;
+                //counter for Roach
+                counterTech[player - 1][3].unitName = c_TU_Marauder;
+                counterTech[player - 1][3].count = 0.80;
+                //counter for Ravager
+                counterTech[player - 1][4].unitName = c_TU_Marauder;
+                counterTech[player - 1][4].count = 1.00;
+                //counter for Hydralisk
+                counterTech[player - 1][5].unitName = c_TU_Marine;
+                counterTech[player - 1][5].count = 2.00;
+                //counter for Lurker
+                counterTech[player - 1][6].unitName = c_TU_Marauder;
+                counterTech[player - 1][6].count = 2.50;
+                //counter for Infestor
+                counterTech[player - 1][7].unitName = c_TU_Marauder;
+                counterTech[player - 1][7].count = 1.50;
+                //counter for Swarmhost
+                counterTech[player - 1][8].unitName = c_TU_Marine;
+                counterTech[player - 1][8].count = 3.00;
+                //counter for Ultralisk
+                counterTech[player - 1][9].unitName = c_TU_Thor;
+                counterTech[player - 1][9].count = 1.20;
+                //counter for Overlord_Alias
+                counterTech[player - 1][10].unitName = c_TU_Viking;
+                counterTech[player - 1][10].count = 0.10;
+                //counter for Overseer
+                counterTech[player - 1][11].unitName = c_TU_Viking;
+                counterTech[player - 1][11].count = 0.10;
+                //counter for Mutalisk
+                counterTech[player - 1][12].unitName = c_TU_Marine;
+                counterTech[player - 1][12].count = 1.50;
+                //counter for Corruptor
+                counterTech[player - 1][13].unitName = c_TU_Marine;
+                counterTech[player - 1][13].count = 1.00;
+                //counter for BroodLord
+                counterTech[player - 1][14].unitName = c_TU_Viking;
+                counterTech[player - 1][14].count = 2.00;
+                //counter for Viper
+                counterTech[player - 1][15].unitName = c_TU_Viking;
+                counterTech[player - 1][15].count = 1.00;
+            } else if (PlayerRace(enemy) == c_RaceStringTerran) {
+                //List units: Marine, Marauder, Reaper, Ghost, hellion, Siegetank, cyclone, widowmine, thor, <Empty>, Viking, medivac, liberator, raven, banshee, battlecruiser
+                //counter for Marine
+                counterTech[player - 1][0].unitName = c_TU_Marine;
+                counterTech[player - 1][0].count = 1.00;
+                //counter for Marauder
+                counterTech[player - 1][1].unitName = c_TU_Marauder;
+                counterTech[player - 1][1].count = 1.00;
+                //counter for Reaper
+                counterTech[player - 1][2].unitName = c_TU_Marauder;
+                counterTech[player - 1][2].count = 0.60;
+                //counter for Ghost
+                counterTech[player - 1][3].unitName = c_TU_Marauder;
+                counterTech[player - 1][3].count = 0.60;
+                //counter for Hellion_Alias
+                counterTech[player - 1][4].unitName = c_TU_Marauder;
+                counterTech[player - 1][4].count = 0.60;
+                //counter for Siegetank
+                counterTech[player - 1][5].unitName = c_TU_SiegeTank;
+                counterTech[player - 1][5].count = 1.00;
+                //counter for Cyclone
+                counterTech[player - 1][6].unitName = c_TU_Marine;
+                counterTech[player - 1][6].count = 2.00;
+                //counter for WidowMine
+                counterTech[player - 1][7].unitName = c_TU_Marine;
+                counterTech[player - 1][7].count = 0.10;
+                //counter for Thor
+                counterTech[player - 1][8].unitName = c_TU_Marauder;
+                counterTech[player - 1][8].count = 4.00;
+                //counter for Viking_Alias
+                counterTech[player - 1][10].unitName = c_TU_Marine;
+                counterTech[player - 1][10].count = 2.00;
+                //counter for Medivac
+                counterTech[player - 1][11].unitName = c_TU_Viking;
+                counterTech[player - 1][11].count = 0.60;
+                //counter for Liberator
+                counterTech[player - 1][12].unitName = c_TU_Liberator;
+                counterTech[player - 1][12].count = 1.00;
+                //counter for Raven
+                counterTech[player - 1][13].unitName = c_TU_Viking;
+                counterTech[player - 1][13].count = 0.60;
+                //counter for Banshee
+                counterTech[player - 1][14].unitName = c_TU_Viking;
+                counterTech[player - 1][14].count = 0.60;
+                //counter for Battlecruiser
+                counterTech[player - 1][15].unitName = c_TU_Viking;
+                counterTech[player - 1][15].count = 2.50;
+            } else if (PlayerRace(enemy) == c_RaceStringProtoss) {
+                //List units: Zealot, Stalker, Sentry, Adept, HighTem, darkTem, Immort, coloss, disrupt, archon, observ, warpprism, Phoenix, voidray, oracle, carrier
+                //counters for Zealot
+                counterTech[player - 1][0].unitName = c_TU_Marauder;
+                counterTech[player - 1][0].count = 1.00;
+                //counter for Stalker
+                counterTech[player - 1][1].unitName = c_TU_Marauder;
+                counterTech[player - 1][1].count = 1.00;
+                //counter for Sentry
+                counterTech[player - 1][2].unitName = c_TU_Marauder;
+                counterTech[player - 1][2].count = 1.00;
+                //counter for Adept
+                counterTech[player - 1][3].unitName = c_TU_Marauder;
+                counterTech[player - 1][3].count = 1.00;
+                //counter for HighTemplar
+                counterTech[player - 1][4].unitName = c_TU_Marauder;
+                counterTech[player - 1][4].count = 1.00;
+                //counter for DarkTemplar
+                counterTech[player - 1][5].unitName = c_TU_Marauder;
+                counterTech[player - 1][5].count = 1.50;
+                //counter for Immortal
+                counterTech[player - 1][6].unitName = c_TU_Marine;
+                counterTech[player - 1][6].count = 4.00;
+                //counter for Colossus
+                counterTech[player - 1][7].unitName = c_TU_SiegeTank;
+                counterTech[player - 1][7].count = 2.00;
+                //counter for Disruptor
+                counterTech[player - 1][8].unitName = c_TU_Marauder;
+                counterTech[player - 1][8].count = 2.00;
+                //counter for Archon
+                counterTech[player - 1][9].unitName = c_TU_Ghost;
+                counterTech[player - 1][9].count = 1.00;
+                //counter for Observer
+                counterTech[player - 1][10].unitName = c_TU_Viking;
+                counterTech[player - 1][10].count = 0.10;
+                //counter for WarpPrism
+                counterTech[player - 1][11].unitName = c_TU_Viking;
+                counterTech[player - 1][11].count = 0.10;
+                //counter for Phoenix
+                counterTech[player - 1][12].unitName = c_TU_Marine;
+                counterTech[player - 1][12].count = 2.00;
+                //counter for VoidRay
+                counterTech[player - 1][13].unitName = c_TU_Viking;
+                counterTech[player - 1][13].count = 1.50;
+                //counter for Oracle
+                counterTech[player - 1][14].unitName = c_TU_Viking;
+                counterTech[player - 1][14].count = 1.00;
+                //counter for Carrier
+                counterTech[player - 1][15].unitName = c_TU_Viking;
+                counterTech[player - 1][15].count = 3.00;
+                //counter for Tempest
+                counterTech[player - 1][16].unitName = c_TU_Viking;
+                counterTech[player - 1][16].count = 3.00;
+                //counter for Mothership
+                counterTech[player - 1][17].unitName = c_TU_Viking;
+                counterTech[player - 1][17].count = 5.00;
+                //counter for MothershipCore
+                counterTech[player - 1][18].unitName = c_TU_Viking;
+                counterTech[player - 1][18].count = 1.00;
+            }
+        }
+        NG_debugState("BasicCounter initialised!");
+    }
+}
+// Returns the number of needed Units, when units are available
+int NG_posSubtract(int needed, int available) {
+    int res;
+    res = needed - available;
+    if (res < 0) {
+        return 0;
+    } else {
+        return res;
+    }
+}
+
+// Summarize the resulting Army list
+void NG_sumArmyList(int player) {
+    int i;
+    int index;
+    int j;
+    string unitType;
+    for (i = 0; i < NG_maxUnitIndex; i += 1) {
+        unitType = NG_counterArmy[player - 1][i].unitName;
+        index = NG_getUnitIndex(unitType);
+        if (index != -1) {
+            sumArmy[player - 1][index].unitName = unitType;
+            sumArmy[player - 1][index].count += NG_counterArmy[player - 1][i].count;
+        }
+    }
+    for (i = 0; i < NG_maxUnitIndex; i += 1) {
+        NG_counterArmy[player - 1][i].unitName = "";
+        NG_counterArmy[player - 1][i].count = 0;
+    }
+
+    j = 0;
+    for (i = 0; i < NG_maxUnitIndex; i += 1) {
+        if (sumArmy[player - 1][i].unitName != "") {
+            NG_counterArmy[player - 1][j].unitName = sumArmy[player - 1][i].unitName;
+            NG_counterArmy[player - 1][j].count = NG_roundUp(sumArmy[player - 1][i].count);
+            j += 1;
+        }
+    }
+}
+
+// Returns the combined cost of the unit (building and unit cost)
+int NG_getUnitCost(int playerid, string unitType, int unitCount) {
+    int totalCost;
+    string currentDependency;
+    totalCost = UnitTypeGetCost(unitType, c_unitCostSumMineralsVespene) * unitCount;
+    currentDependency = unitDependencies[playerid - 1][NG_getUnitIndex(unitType)];
+    while (1) {
+        if (AIKnownUnitCount(playerid, playerid, currentDependency) > 0 || currentDependency == "") {
+            return totalCost;
+        }
+        totalCost += UnitTypeGetCost(currentDependency, c_unitCostSumMineralsVespene);
+        currentDependency = buildingDependencies[playerid - 1][NG_getBuildingIndex(currentDependency)];
+    }
+    return -1;
+}
+
+//Get Unit Dependencies, stored in getUnitDependencies[], returns number of dependencies
+int NG_getMissingUnitDependencies(int playerid, string unitType) {
+    string currentDependency;
+    int i;
+    int j;
+    i = 0;
+    currentDependency = unitDependencies[playerid - 1][NG_getUnitIndex(unitType)];
+    while (currentDependency != "") {
+        if (AIKnownUnitCount(playerid, playerid, currentDependency) == 0) {
+            NG_missingUnitDependencies[playerid - 1][i] = currentDependency;
+            i += 1;
+            currentDependency = buildingDependencies[playerid - 1][NG_getBuildingIndex(currentDependency)];
+        } else {
+            break;
+        }
+    }
+    NG_debugState("----------------");
+    for (j = 0; j < i; j += 1) {
+        NG_debugState (NG_missingUnitDependencies[playerid - 1][j]);
+    }
+    NG_debugState("----------------");
+    return i;
+}
+
+// returns a given fixed to int, but always rounded up
+int NG_roundUp(fixed input) {
+    if (input % 1 > 0) {
+        return FixedToInt(input) + 1;
+    } else {
+        return FixedToInt(input);
+    }
+}
+
+int NG_roundDown(fixed input) {
+    if (input % 1 > 0) {
+        return FixedToInt(input) - 1;
+    } else {
+        return FixedToInt(input);
+    }
+}
+
+// Computes a currently possible Army to counter the enemy army
+void NG_counterToEnemy(int playerid, unitgroup theirArmy) {
+    int index;
+    string basicUnit;
+    string techUnit;
+    fixed count1;
+    fixed count2;
+//    UnitGroupLoopBegin(theirArmy);
+
+    for (index = 0; index <= NG_maxUnitIndex; index += 1) {
+        sumArmy[playerid - 1][index].unitName = "";
+        sumArmy[playerid - 1][index].count = 0;
+        NG_counterArmy[playerid - 1][index].unitName = "";
+        NG_counterArmy[playerid - 1][index].count = 0;
+    }
+//     For unit in theirArmy:
+//          Get Counter
+//          Write to output array
+//        while (!UnitGroupLoopDone()) {
+//            index = NG_getUnitIndex(UnitGetType(UnitGroupLoopCurrent()));
+//            if (index != -1) {
+//                count1 = NG_getUnitCost(playerid, counterBasic[index].unitName, NG_roundUp(counterBasic[index].count));
+//                count2 = NG_getUnitCost(playerid, counterTech[index].unitName, NG_roundUp(counterTech[index].count));
+//                //NG_debugState("basic: " + FixedToString(count1, 2));
+//                //NG_debugState("tech: " + FixedToString(count2, 2));
+//                // DECISION LOGIC
+//                if (count2 >= (300.0 * NG_roundUp(counterTech[index].count))) {
+//                    NG_counterArmy[index].unitName = counterBasic[index].unitName;
+//                    NG_counterArmy[index].count += counterBasic[index].count;
+//                } else {
+//                    NG_counterArmy[index].unitName = counterTech[index].unitName;
+//                    NG_counterArmy[index].count += counterTech[index].count;
+//                }
+//            }
+//            UnitGroupLoopStep();
+//        }
+//        UnitGroupLoopEnd();
+    NG_spyEnemyArmyLoopBegin(playerid, (((playerid) % 2) + 1));
+    while (!NG_spyArmyLoopDone()) {
+        index = NG_getUnitIndex(NG_spyArmyLoopCurrentUnitString());
+        if (index != -1) {
+//            DebugAI(counterBasic[playerid - 1][index].unitName + FixedToString(counterBasic[playerid - 1][index].count, 2));
+//            DebugAI(counterTech[playerid - 1][index].unitName + FixedToString(counterTech[playerid - 1][index].count, 2));
+            if (NG_roundUp(counterBasic[playerid - 1][index].count) > 1) {
+                count1 = NG_getUnitCost(playerid, counterBasic[playerid - 1][index].unitName, NG_roundUp(counterBasic[playerid - 1][index].count));
+            }
+            if (NG_roundUp(counterTech[playerid - 1][index].count) > 1) {
+                count2 = NG_getUnitCost(playerid, counterTech[playerid - 1][index].unitName, NG_roundUp(counterTech[playerid - 1][index].count));
+            }
+            // DECISION LOGIC
+            if (count2 >= (4.0 * count1)) {
+                NG_counterArmy[playerid - 1][index].unitName = counterBasic[playerid - 1][index].unitName;
+                NG_counterArmy[playerid - 1][index].count += counterBasic[playerid - 1][index].count;
+            } else {
+                NG_counterArmy[playerid - 1][index].unitName = counterTech[playerid - 1][index].unitName;
+                NG_counterArmy[playerid - 1][index].count += counterTech[playerid - 1][index].count;
+            }
+        }
+        // next step of loop
+        NG_spyArmyLoopStep();
+    }
+    NG_spyArmyLoopEnd();
+
+// Order Array and Output
+    NG_sumArmyList(playerid);
+    for (index = 0; index <= NG_maxUnitIndex; index += 1) {
+        if (NG_counterArmy[playerid - 1][index].unitName != "") {
+            NG_debugState(NG_counterArmy[playerid - 1][index].unitName + " x " + FixedToString(NG_counterArmy[playerid - 1][index].count, 2));
+        }
+    }
+
+    NG_optimizeCounter(playerid);
+
+}
+
+void NG_optimizeCounter(int player) {
+    int i = 0;
+    int j = 0;
+    int deps = 0;
+    armyUnit currentUnit;
+
+    int myUnitCount = 0;
+    int myQueuedCount = 0;
+    int temp = 0;
+    fixed burningFactor = 1.0;
+
+    if (false == (BurningLevelMinerals[player - 1] > 0 && BurningLevelGas[player - 1] > 0)) {
+        // Filter out Units we already have and we already have queued
+        for (i = 0; i < NG_currentMaxUnitIndex[player - 1]; i = i + 1) {
+            myUnitCount = AIKnownUnitCount(player, player, NG_counterArmy[player - 1][i].unitName);
+            myQueuedCount = NG_CountQueued(player, NG_counterArmy[player - 1][i].unitName);
+            temp = NG_posSubtract(FixedToInt(NG_counterArmy[player - 1][i].count), myUnitCount);
+            NG_counterArmy[player - 1][i].count = IntToFixed(NG_posSubtract(temp, myQueuedCount));
+        }
+        burningFactor = 1.0;
+    } else {
+        burningFactor = 0.1 * BurningLevelMinerals[player - 1] * BurningLevelGas[player - 1];
+    }
+
+// Add Cost for each Element
+    for (i = 0; i < NG_currentMaxUnitIndex[player - 1]; i = i + 1) {
+        if (NG_counterArmy[player - 1][i].count > 0.0) {
+            NG_counterArmy[player - 1][i].cost = NG_getUnitCost(player, NG_counterArmy[player - 1][i].unitName, NG_roundUp(NG_counterArmy[player - 1][i].count));
+        } else {
+            NG_counterArmy[player - 1][i].cost = 0; // There is no cost, because there is nothing to build.
+        }
+    }
+
+// Perform Insertion Sort, Criteria: Cost
+    for (i = 1; i < NG_currentMaxUnitIndex[player - 1]; i = i + 1) {
+        // Save Element i (equals j+1) Element, because it maybe will be overwritten
+        currentUnit.cost = NG_counterArmy[player - 1][i].cost;
+        currentUnit.unitName = NG_counterArmy[player - 1][i].unitName;
+        currentUnit.count = NG_counterArmy[player - 1][i].count;
+        j = i - 1;
+        while ((j >= 0) && (NG_counterArmy[player - 1][j].cost > currentUnit.cost)) {
+            NG_counterArmy[player - 1][j + 1].cost = NG_counterArmy[player - 1][j].cost; // shift Position j on place back
+            NG_counterArmy[player - 1][j + 1].unitName = NG_counterArmy[player - 1][j].unitName;
+            NG_counterArmy[player - 1][j + 1].count = NG_counterArmy[player - 1][j].count;
+
+            j = j - 1;
+        }
+        NG_counterArmy[player - 1][j + 1].cost = currentUnit.cost;
+        NG_counterArmy[player - 1][j + 1].unitName = currentUnit.unitName;
+        NG_counterArmy[player - 1][j + 1].count = currentUnit.count;
+    }
+
+// Add Units to Build Now (no deps) and Build Later (deps needed) to BO Manager
+    for (i = 0; i < NG_currentMaxUnitIndex[player - 1]; i = i + 1) {
+        if (NG_counterArmy[player - 1][i].count > 0.0) {
+            deps = NG_getMissingUnitDependencies(player, NG_counterArmy[player - 1][i].unitName);
+            if (deps != 0) {
+                // Add Dependent Buildings first and then build the Unit
+                for (j = 0; j < deps; j = j + 1) {
+
+                    NG_TryBuildCounter(player, NG_missingUnitDependencies[player - 1][j], 1);
+                }
+            }
+            NG_TryBuildCounter(player, NG_counterArmy[player - 1][i].unitName, NG_roundUp(NG_counterArmy[player - 1][i].count * burningFactor));
+
+        }
+    }
+
+}

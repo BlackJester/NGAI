@@ -1,0 +1,22 @@
+void stonedGameSpeed(string op){
+
+	if(op == "clean"){
+		GameSetSpeedValue(c_gameSpeedNormal);
+		DebugAI("Clean again!");
+	}
+
+	else if(op == "take"){
+		GameSetSpeedValue(c_gameSpeedSlower);
+		DebugAI("Stooooned!");
+	}
+	
+	else if(op == "MDMA"){
+			GameSetSpeedValue(42);
+			DebugAI("I'm fucking pumped!");
+		}
+
+	else{
+		GameSetSpeedValue(c_gameSpeedSlower);
+		DebugAI("Stooooned!");
+	}
+}
