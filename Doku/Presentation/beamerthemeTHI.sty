@@ -1,0 +1,115 @@
+\ProvidesPackage{beamerthemeTHI}[2012/10/05]
+
+\definecolor{HIPurple}{RGB}{88,43,129}
+\definecolor{HIGreen}{RGB}{0,90,155}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Outer theme
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\useoutertheme[width=.12\paperwidth]{sidebar}
+%\setlength{\beamer@headheight}{.145\paperheight}
+\pgfdeclareimage[width=.35\paperwidth]{type-logo}{bilder/thilogoquercroppedtransparent}
+\pgfdeclareimage[height=0.75\beamer@headheight]{small-corner}{bilder/thi_logo_raw}
+\pgfdeclareimage[width=1\paperwidth]{titlepage}{bilder/haw_titel_4}%ctanlion_wide
+\setbeamertemplate{sidebar left}{%
+\insertverticalnavigation{\beamer@sidebarwidth}%
+}
+
+%\setbeamertemplate{footline}[text line]{%
+%\insertframenumber \hspace{1em}|\hspace{1em} \insertauthor \hspace{1em}|\hspace{1em} \insertshorttitle \hspace{1em}|\hspace{1em} \insertshortdate}
+
+\addtobeamertemplate{frametitle}{}{%
+\begin{pgfpicture}
+\pgf@relevantforpicturesizefalse
+\pgftransformxshift{-\Gm@lmargin}
+\pgftransformyshift{\beamer@headheight+18pt}
+\pgftext[at=\pgfpoint{\paperwidth-4pt}{-\beamer@headheight+15pt},right,base]{\pgfuseimage{small-corner}}
+\end{pgfpicture}
+\vskip-25pt%
+}
+
+\addtobeamertemplate{frametitle}{\vskip+1.5ex}{}
+
+\defbeamertemplate*{title page}{customized}[1][]
+{
+%  \vskip 0.8\paperheight
+\vskip -30pt
+\begin{minipage}[t][0.5\textheight][t]{\textwidth}
+	  \hskip -20pt
+	  \usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par
+	  \hskip -20pt
+	  \usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par
+	  %\bigskip	  
+\end{minipage}	
+
+%  \usebeamerfont{institute}\insertinstitute\par
+%  \usebeamerfont{date}\insertdate\par
+%  \usebeamercolor[fg]{titlegraphic}\inserttitlegraphic
+
+
+  \pgftext[at=\pgfpoint{0.8\paperwidth}{0.4\paperheight},right,base]{\pgfuseimage{type-logo}}
+	
+%  \pgftext[at=\pgfpoint{0}{0},top,left]{\pgfuseimage{titlepage}}
+}
+
+
+%\addtobeamertemplate{title page}{%
+%\usebeamertemplate{title background}%
+%\vskip .2\paperheight%
+%\pgftext[at=\pgfpoint{-0.158\paperwidth}{-0.25\paperheight},top,left]{\pgfuseimage{titlepage}}
+%}
+%{}
+
+%\setbeamertemplate{title background}{%
+%\begin{pgfpicture}
+%\pgf@relevantforpicturesizefalse
+%\pgftransformxshift{-\Gm@lmargin}
+%\pgftransformyshift{5.5pt}
+
+%% Logo
+%\pgftext[at=\pgfpoint{\paperwidth-18pt}{-.185\paperheight},right,base]{\pgfuseimage{type-logo}}
+
+%%\pgftext[at=\pgfpoint{.16\paperwidth}{-.92\paperheight},left,base]{\tiny www.haw-ingolstadt.de}
+%\end{pgfpicture}%
+%}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Inner Theme
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\useinnertheme{rectangles}
+\setbeamertemplate{navigation symbols}{}
+
+\setlength{\leftmargini}{.5em}
+\setlength{\leftmarginii}{1.0em}
+\setlength{\leftmarginiii}{1.5em}
+\setlength{\leftmarginiv}{2.0em}
+\setlength{\leftmarginv}{2.5em}
+\setlength{\leftmarginvi}{3.0em}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Colours
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usecolortheme[named=HIGreen]{structure}
+\usecolortheme{rose}
+\setbeamercolor{logo}{bg=white}
+
+\setbeamercolor{frametitle}{fg=black,bg=white}
+\setbeamercolor{sidebar}{bg=HIGreen}
+
+\setbeamercolor{section in sidebar}{fg=white}
+\setbeamerfont{section in sidebar}{series=\bfseries}
+\setbeamercolor{subsection in sidebar}{fg=white}
+\setbeamercolor{block title}{bg=HIGreen!28!white,fg=HIGreen}
+\setbeamercolor{block body}{bg=HIGreen!15!white}
+
+\newcommand\ThankYouFrame{
+\begin{frame}[plain,t]
+\begin{pgfpicture}
+\pgf@relevantforpicturesizefalse
+\pgftransformxshift{-\Gm@lmargin}
+\pgftransformyshift{5.5pt}
+\pgftext[at=\pgfpoint{.5\paperwidth}{-.3\paperheight},center,center]{\huge\structure{Vielen
+  Dank f\"ur Ihre Aufmerksamkeit.}}
+\end{pgfpicture}
+\end{frame}
+}

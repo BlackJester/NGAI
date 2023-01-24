@@ -1,0 +1,26 @@
+\begin{tikzpicture}[align=center,node distance=2cm, auto]
+\path[mindmap,concept color=black, text=white, scale=0.55,every node/.style={scale=0.55}]
+node[concept] {RTS AI: \\vorhersagen, \\entscheiden, \\ausführen}
+[clockwise from=-30]
+child[concept color=green!35!blue!61] {
+	node[concept] {Strategie}
+	[clockwise from=-30]
+	child { node[concept] {Technologie} }
+	child { node[concept] {Armee} }
+	child { node[concept] {Ressourcen} }
+}  
+child[concept color=orange!80] {
+	node[concept] {Taktik}
+	[clockwise from=-30]
+	child { node[concept] {Wann?} }
+	child { node[concept] {Wie?} }
+	child { node[concept] {Wo?} }
+}
+child[concept color=green!80!black] { 
+	node[concept] {Micro} 
+	[clockwise from=-30]
+	child { node[concept] {Kooperieren} }
+	child { node[concept] {Optimieren} }
+	child { node[concept] {Reagieren} }
+};
+\end{tikzpicture}
